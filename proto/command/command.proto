@@ -8,28 +8,28 @@ message StringArray {
   repeated string s = 1;
 }
 
-message BytesArray {
-  repeated bytes b = 1 ;
-}
+//message BytesArray {
+//  repeated bytes b = 1 ;
+//}
 
-message Parameter {
-  oneof value {
-    sint64 i = 1;
-    double d = 2;
-    bool b = 3;
-    bytes y = 4;
-    string s = 5;
-    BytesArray a = 7;
-  }
-}
+//message Parameter {
+//  oneof value {
+//    sint64 i = 1;
+//    double d = 2;
+//    bool b = 3;
+//    bytes y = 4;
+//    string s = 5;
+//    BytesArray a = 7;
+//  }
+//}
+//
+//message Request{
+//  string ns = 1;
+//  repeated Parameter parameters = 2;
+//}
 
-message Request{
-  string ns = 1;
-  repeated Parameter parameters = 2;
-}
-
-message EnforceRequest {
-  Request request = 1;
+message EnforcePayload {
+  repeated bytes b = 1;
   bool timings = 2;
   enum Level {
     QUERY_REQUEST_LEVEL_NONE = 0;
@@ -40,20 +40,56 @@ message EnforceRequest {
   int64 freshness = 4;
 }
 
-message ModifyRequest {
-  Request request = 1;
+message AddPoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray rules = 3;
+}
+
+message RemovePoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray rules = 3;
+}
+
+message RemoveFilteredPolicyPayload {
+  string sec = 1;
+  string pType = 2;
+  int32  fieldIndex = 3;
+  repeated string fieldValues = 4;
+}
+
+message UpdatePolicyPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated string newRule = 3;
+  repeated string oldRule = 4;
+}
+
+message UpdatePoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray newRules = 3;
+  repeated StringArray oldRules = 4;
+}
+
+enum Type {
+  COMMAND_TYPE_METADATA_SET = 0;
+  COMMAND_TYPE_METADATA_DELETE = 1;
+  COMMAND_TYPE_NOOP = 2;
+
+  COMMAND_TYPE_ENFORCE_REQUEST = 3;
+  COMMAND_TYPE_ADD_POLICIES = 4;
+  COMMAND_TYPE_REMOVE_POLICIES = 5;
+  COMMAND_TYPE_REMOVE_FILTERED_POLICY = 6;
+  COMMAND_TYPE_UPDATE_POLICY = 7;
+  COMMAND_TYPE_UPDATE_POLICIES = 8;
+  COMMAND_TYPE_CLEAR_POLICY = 9;
 }
 
 message Command {
-  enum Type {
-    COMMAND_TYPE_ENFORCE_REQUEST = 0;
-    COMMAND_TYPE_MODIFY_REQUEST = 1 ;
-    COMMAND_TYPE_METADATA_SET = 2;
-    COMMAND_TYPE_METADATA_DELETE = 3;
-    COMMAND_TYPE_NOOP = 4;
-  }
   Type type = 1;
-  bytes sub_command = 2;
+  bytes payload = 2;
   bool compressed = 3;
 }
 
