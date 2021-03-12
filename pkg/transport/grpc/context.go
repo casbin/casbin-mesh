@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// Context
 type Context struct {
 	context.Context
 	md           metadata.MD
@@ -20,18 +21,22 @@ type Context struct {
 	handlers     []HandlerFunc
 }
 
+// Response gets read-only response
 func (c *Context) Response() interface{} {
 	return c.response
 }
 
+// SetResponse sets the response to context
 func (c *Context) SetResponse(resp interface{}) {
 	c.response = resp
 }
 
+// Request gets read-only request
 func (c *Context) Request() interface{} {
 	return c.request
 }
 
+// Next run the next handler func until out of range
 func (c *Context) Next() (err error) {
 	c.indexHandler++
 	if c.indexHandler < uint8(len(c.handlers)) {

@@ -21,10 +21,12 @@ type handler struct {
 	cfg      Config
 }
 
+// CombineHandlers returns a http Handler
 func CombineHandlers(cfg Config, h ...HandlerFunc) Handler {
 	return &handler{cfg: cfg, handlers: h}
 }
 
+// ServeHTTP the endpoint of handle request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := newContext(context.Background(), h.handlers...)
 	c.Request = r
