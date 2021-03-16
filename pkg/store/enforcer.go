@@ -8,6 +8,9 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"time"
+
+	"github.com/casbin/casbin/v2"
 
 	"github.com/WenyXu/casbind/proto/command"
 	"github.com/golang/protobuf/proto"
@@ -68,44 +71,60 @@ func (s *Store) SetModelFromString(ctx context.Context, ns string, text string) 
 }
 
 // Enforce
-func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePayload_Level, freshness int64, param ...interface{}) (bool, error) {
-	var B [][]byte
-	for _, p := range param {
-		b, err := json.Marshal(p)
+func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePayload_Level, freshness int64, params ...interface{}) (bool, error) {
+	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_STRONG {
+		var B [][]byte
+		for _, p := range params {
+			b, err := json.Marshal(p)
+			if err != nil {
+				return false, err
+			}
+			B = append(B, b)
+		}
+
+		payload, err := proto.Marshal(&command.EnforcePayload{
+			B:         B,
+			Level:     level,
+			Freshness: freshness,
+		})
 		if err != nil {
 			return false, err
 		}
-		B = append(B, b)
-	}
 
-	payload, err := proto.Marshal(&command.EnforcePayload{
-		B:         B,
-		Level:     level,
-		Freshness: freshness,
-	})
-	if err != nil {
-		return false, err
-	}
-
-	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_ENFORCE_REQUEST,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
-	})
-	if err != nil {
-		return false, err
-	}
-	f := s.raft.Apply(cmd, s.ApplyTimeout)
-	if e := f.(raft.Future); e.Error() != nil {
-		if e.Error() == raft.ErrNotLeader {
+		cmd, err := proto.Marshal(&command.Command{
+			Type:       command.Type_COMMAND_TYPE_ENFORCE_REQUEST,
+			Ns:         ns,
+			Payload:    payload,
+			Md:         nil,
+			Compressed: false,
+		})
+		if err != nil {
 			return false, err
 		}
-		return false, e.Error()
+		f := s.raft.Apply(cmd, s.ApplyTimeout)
+		if e := f.(raft.Future); e.Error() != nil {
+			if e.Error() == raft.ErrNotLeader {
+				return false, ErrNotLeader
+			}
+			return false, e.Error()
+		}
+		r := f.Response().(*FSMEnforceResponse)
+		return r.ok, r.error
 	}
-	r := f.Response().(*FSMEnforceResponse)
-	return r.ok, r.error
+
+	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_WEAK && s.raft.State() != raft.Leader {
+		return false, ErrNotLeader
+	}
+	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_NONE && freshness > 0 && time.Since(s.raft.LastContact()).Nanoseconds() > freshness {
+		return false, ErrStaleRead
+	}
+	if e, ok := s.enforcers.Load(ns); ok {
+		enforcer := e.(*casbin.DistributedEnforcer)
+		r, err := enforcer.Enforce(params...)
+		return r, err
+	} else {
+		return false, NamespaceNotExist
+	}
 }
 
 // SetMetadata adds the metadata md to any existing metadata for

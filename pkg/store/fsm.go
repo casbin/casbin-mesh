@@ -36,8 +36,10 @@ type FSMEnforceResponse struct {
 }
 
 var (
+	// NamespaceNotExist namespace not created
 	NamespaceNotExist = errors.New("namespace not exist")
-	UnmarshalFail     = errors.New("unmarshal failed")
+	// UnmarshalFail unmarshal failed
+	UnmarshalFail = errors.New("unmarshal failed")
 )
 
 func (s *Store) Apply(l *raft.Log) (e interface{}) {
