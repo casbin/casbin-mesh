@@ -17,6 +17,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang/protobuf/proto"
+
+	"github.com/WenyXu/casbind/proto/command"
+
 	rlog "github.com/WenyXu/casbind/pkg/log"
 	"github.com/hashicorp/raft"
 )
@@ -536,4 +540,112 @@ func (s *Store) Stats() (map[string]interface{}, error) {
 		"dir_size":           dirSz,
 	}
 	return status, nil
+}
+
+// Join joins a node, identified by id and located at addr, to this store.
+// The node must be ready to respond to Raft communications at that address.
+func (s *Store) Join(id, addr string, voter bool, metadata map[string]string) error {
+	s.logger.Printf("received request to join node at %s", addr)
+	if s.raft.State() != raft.Leader {
+		return ErrNotLeader
+	}
+
+	configFuture := s.raft.GetConfiguration()
+	if err := configFuture.Error(); err != nil {
+		s.logger.Printf("failed to get raft configuration: %v", err)
+		return err
+	}
+
+	for _, srv := range configFuture.Configuration().Servers {
+		// If a node already exists with either the joining node's ID or address,
+		// that node may need to be removed from the config first.
+		if srv.ID == raft.ServerID(id) || srv.Address == raft.ServerAddress(addr) {
+			// However if *both* the ID and the address are the same, the no
+			// join is actually needed.
+			if srv.Address == raft.ServerAddress(addr) && srv.ID == raft.ServerID(id) {
+				s.logger.Printf("node %s at %s already member of cluster, ignoring join request", id, addr)
+				return nil
+			}
+
+			if err := s.remove(id); err != nil {
+				s.logger.Printf("failed to remove node: %v", err)
+				return err
+			}
+		}
+	}
+
+	var f raft.IndexFuture
+	if voter {
+		f = s.raft.AddVoter(raft.ServerID(id), raft.ServerAddress(addr), 0, 0)
+	} else {
+
+		f = s.raft.AddNonvoter(raft.ServerID(id), raft.ServerAddress(addr), 0, 0)
+	}
+	if e := f.(raft.Future); e.Error() != nil {
+		if e.Error() == raft.ErrNotLeader {
+			return ErrNotLeader
+		}
+		return e.Error()
+	}
+
+	if err := s.setMetadata(id, metadata); err != nil {
+		return err
+	}
+
+	s.logger.Printf("node at %s joined successfully as %s", addr, prettyVoter(voter))
+	return nil
+}
+
+// Remove removes a node from the store, specified by ID.
+func (s *Store) Remove(id string) error {
+	s.logger.Printf("received request to remove node %s", id)
+	if err := s.remove(id); err != nil {
+		s.logger.Printf("failed to remove node %s: %s", id, err.Error())
+		return err
+	}
+
+	s.logger.Printf("node %s removed successfully", id)
+	return nil
+}
+
+// remove removes the node, with the given ID, from the cluster.
+func (s *Store) remove(id string) error {
+	if s.raft.State() != raft.Leader {
+		return ErrNotLeader
+	}
+
+	f := s.raft.RemoveServer(raft.ServerID(id), 0, 0)
+	if f.Error() != nil {
+		if f.Error() == raft.ErrNotLeader {
+			return ErrNotLeader
+		}
+		return f.Error()
+	}
+
+	md := command.MetadataDelete{
+		RaftId: id,
+	}
+	p, err := proto.Marshal(&md)
+	if err != nil {
+		return err
+	}
+
+	c := &command.Command{
+		Type:    command.Type_COMMAND_TYPE_METADATA_DELETE,
+		Payload: p,
+	}
+	bc, err := proto.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	f = s.raft.Apply(bc, s.ApplyTimeout)
+	if e := f.(raft.Future); e.Error() != nil {
+		if e.Error() == raft.ErrNotLeader {
+			return ErrNotLeader
+		}
+		e.Error()
+	}
+
+	return nil
 }

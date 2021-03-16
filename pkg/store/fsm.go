@@ -114,7 +114,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_UPDATE_POLICIES:
 		var p command.UpdatePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			panic(fmt.Sprintf("failed to unmarshal add policies payload: %s", err.Error()))
+			panic(fmt.Sprintf("failed to unmarshal update policies payload: %s", err.Error()))
 		}
 		if e, ok := s.enforcers.Load(cmd.Ns); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
@@ -129,7 +129,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_UPDATE_POLICY:
 		var p command.UpdatePolicyPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			panic(fmt.Sprintf("failed to unmarshal add policies payload: %s", err.Error()))
+			panic(fmt.Sprintf("failed to unmarshal update policies payload: %s", err.Error()))
 		}
 		if e, ok := s.enforcers.Load(cmd.Ns); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
@@ -144,7 +144,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_REMOVE_POLICIES:
 		var p command.RemovePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			panic(fmt.Sprintf("failed to unmarshal add policies payload: %s", err.Error()))
+			panic(fmt.Sprintf("failed to unmarshal remove policy payload: %s", err.Error()))
 		}
 		if e, ok := s.enforcers.Load(cmd.Ns); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
@@ -159,7 +159,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_REMOVE_FILTERED_POLICY:
 		var p command.RemoveFilteredPolicyPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			panic(fmt.Sprintf("failed to unmarshal add policies payload: %s", err.Error()))
+			panic(fmt.Sprintf("failed to unmarshal remove filtered policy payload: %s", err.Error()))
 		}
 		if e, ok := s.enforcers.Load(cmd.Ns); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
@@ -182,6 +182,33 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
 		return &FSMResponse{}
+	case command.Type_COMMAND_TYPE_METADATA_SET:
+		var ms command.MetadataSet
+		if err := proto.UnmarshalMerge(cmd.Payload, &ms); err != nil {
+			panic(fmt.Sprintf("failed to unmarshal metadata set payload: %s", err.Error()))
+		}
+		func() {
+			s.metaMu.Lock()
+			defer s.metaMu.Unlock()
+			if _, ok := s.meta[ms.RaftId]; !ok {
+				s.meta[ms.RaftId] = make(map[string]string)
+			}
+			for k, v := range ms.Data {
+				s.meta[ms.RaftId][k] = v
+			}
+		}()
+		return &FSMEnforceResponse{}
+	case command.Type_COMMAND_TYPE_METADATA_DELETE:
+		var md command.MetadataDelete
+		if err := proto.UnmarshalMerge(cmd.Payload, &md); err != nil {
+			panic(fmt.Sprintf("failed to unmarshal metadata set payload: %s", err.Error()))
+		}
+		func() {
+			s.metaMu.Lock()
+			defer s.metaMu.Unlock()
+			delete(s.meta, md.RaftId)
+		}()
+		return &FSMEnforceResponse{}
 	default:
 		return &FSMResponse{error: fmt.Errorf("unhandled command: %v", cmd.Type)}
 	}

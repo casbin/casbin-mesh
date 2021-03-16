@@ -141,7 +141,6 @@ func Test_SingleNodeEnforce(t *testing.T) {
 		assert.Equal(t, nil, err)
 		assert.Equal(t, r, set.expect)
 	}
-
 }
 
 type EnforceData struct {

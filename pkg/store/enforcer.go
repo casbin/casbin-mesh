@@ -107,3 +107,60 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 	r := f.Response().(*FSMEnforceResponse)
 	return r.ok, r.error
 }
+
+// SetMetadata adds the metadata md to any existing metadata for
+// this node.
+func (s *Store) SetMetadata(md map[string]string) error {
+	return s.setMetadata(s.raftID, md)
+}
+
+// setMetadata adds the metadata md to any existing metadata for
+// the given node ID.
+func (s *Store) setMetadata(id string, md map[string]string) error {
+	// Check local data first.
+	if func() bool {
+		s.metaMu.RLock()
+		defer s.metaMu.RUnlock()
+		if _, ok := s.meta[id]; ok {
+			for k, v := range md {
+				if s.meta[id][k] != v {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}() {
+		// Local data is same as data being pushed in,
+		// nothing to do.
+		return nil
+	}
+
+	ms := &command.MetadataSet{
+		RaftId: id,
+		Data:   md,
+	}
+	bms, err := proto.Marshal(ms)
+	if err != nil {
+		return err
+	}
+
+	c := &command.Command{
+		Type:    command.Type_COMMAND_TYPE_METADATA_SET,
+		Payload: bms,
+	}
+	bc, err := proto.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	f := s.raft.Apply(bc, s.ApplyTimeout)
+	if e := f.(raft.Future); e.Error() != nil {
+		if e.Error() == raft.ErrNotLeader {
+			return ErrNotLeader
+		}
+		return e.Error()
+	}
+
+	return nil
+}

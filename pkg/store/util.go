@@ -41,3 +41,11 @@ func dirSize(path string) (int64, error) {
 	})
 	return size, err
 }
+
+// prettyVoter converts bool to "voter" or "non-voter"
+func prettyVoter(v bool) string {
+	if v {
+		return "voter"
+	}
+	return "non-voter"
+}
