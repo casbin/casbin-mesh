@@ -18,7 +18,6 @@ import (
 	"time"
 
 	rlog "github.com/WenyXu/casbind/pkg/log"
-	"github.com/casbin/casbin/v2"
 	"github.com/hashicorp/raft"
 )
 
@@ -124,7 +123,7 @@ type Store struct {
 
 	metaMu    sync.RWMutex
 	meta      map[string]map[string]string
-	enforcers map[string]casbin.DistributedEnforcer
+	enforcers sync.Map
 	logger    *log.Logger
 
 	ShutdownOnRemove   bool

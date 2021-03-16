@@ -42,7 +42,8 @@ func (s *Store) AddPolicies(ctx context.Context, ns string, sec string, pType st
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
 
 // RemovePolicies implements the casbin.Adapter interface.
@@ -74,7 +75,8 @@ func (s *Store) RemovePolicies(ctx context.Context, ns string, sec string, pType
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
 
 // RemoveFilteredPolicy implements the casbin.Adapter interface.
@@ -107,7 +109,8 @@ func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string,
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
 
 // UpdatePolicy implements the casbin.Adapter interface.
@@ -140,7 +143,8 @@ func (s *Store) UpdatePolicy(ctx context.Context, ns string, sec string, pType s
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
 
 // UpdatePolicies implements the casbin.Adapter interface.
@@ -173,7 +177,8 @@ func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
 
 // ClearPolicy implements the casbin.Adapter interface.
@@ -196,5 +201,6 @@ func (s *Store) ClearPolicy(ctx context.Context, ns string) error {
 		}
 		return e.Error()
 	}
-	return nil
+	r := f.Response().(*FSMResponse)
+	return r.error
 }
