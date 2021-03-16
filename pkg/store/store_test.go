@@ -108,7 +108,7 @@ func Test_SingleNodeAddPolices(t *testing.T) {
 	err = s.SetModelFromString(context.TODO(), "default", modelText)
 	assert.Equal(t, nil, err)
 	err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
-		{"p", "alice", "data1", "read"},
+		{"alice", "data1", "read"},
 	})
 	assert.Equal(t, nil, err)
 }
