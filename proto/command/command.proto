@@ -89,8 +89,13 @@ enum Type {
 
 message Command {
   Type type = 1;
-  bytes payload = 2;
-  bool compressed = 3;
+  // namespace
+  string ns = 2;
+  // payload
+  bytes payload = 3;
+  // metadata
+  map<string,string> md =4;
+  bool compressed = 5;
 }
 
 message MetadataSet {

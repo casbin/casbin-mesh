@@ -18,7 +18,7 @@ import (
 	"time"
 
 	rlog "github.com/WenyXu/casbind/pkg/log"
-
+	"github.com/casbin/casbin/v2"
 	"github.com/hashicorp/raft"
 )
 
@@ -66,7 +66,7 @@ const (
 type BackupFormat int
 
 const (
-	// BackupBinary is a SQLite file backup format.
+	// BackupBinary is a file backup format.
 	BackupBinary = iota
 )
 
@@ -122,10 +122,10 @@ type Store struct {
 	txMu    sync.RWMutex // Sync between snapshots and query-level transactions.
 	queryMu sync.RWMutex // Sync queries generally with other operations.
 
-	metaMu sync.RWMutex
-	meta   map[string]map[string]string
-
-	logger *log.Logger
+	metaMu    sync.RWMutex
+	meta      map[string]map[string]string
+	enforcers map[string]casbin.DistributedEnforcer
+	logger    *log.Logger
 
 	ShutdownOnRemove   bool
 	SnapshotThreshold  uint64
