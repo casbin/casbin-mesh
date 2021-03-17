@@ -6,7 +6,6 @@ Copyright The casbind Authors.
 package store
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -222,10 +221,6 @@ type fsmSnapshot struct {
 	logger    *log.Logger
 	enforcers []byte
 	meta      []byte
-}
-
-func writeUint64(w io.Writer, v uint64) error {
-	return binary.Write(w, binary.LittleEndian, v)
 }
 
 type persistData struct {
