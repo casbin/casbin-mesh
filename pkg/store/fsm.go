@@ -224,8 +224,8 @@ type fsmSnapshot struct {
 }
 
 type persistData struct {
-	enforcers []byte
-	meta      []byte
+	Enforcers []byte
+	Meta      []byte
 }
 
 func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
@@ -234,13 +234,13 @@ func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	}()
 	err := func() error {
 		data, err := json.Marshal(persistData{
-			enforcers: f.enforcers,
-			meta:      f.meta,
+			Enforcers: f.enforcers,
+			Meta:      f.meta,
 		})
 		if err != nil {
 			return err
 		}
-		// Write the cluster enforcers.
+		// Write the cluster Enforcers.
 		if _, err := sink.Write(data); err != nil {
 			return err
 		}
@@ -261,9 +261,19 @@ func (f fsmSnapshot) Release() {
 }
 
 func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
-	enforcers := make(map[interface{}]interface{})
+	enforcers := make(map[string]EnforcerState)
 	s.enforcers.Range(func(key, value interface{}) bool {
-		enforcers[key] = value
+		e, ok := value.(*casbin.DistributedEnforcer)
+		if ok {
+			es, err := CreateEnforcerState(e)
+			if err != nil {
+				return false
+			}
+			enforcers[key.(string)] = es
+		} else {
+			// empty case, e.g. just created namespace
+			enforcers[key.(string)] = EnforcerState{}
+		}
 		return true
 	})
 	var err error
@@ -273,12 +283,12 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 	}
 	fsm.enforcers, err = json.Marshal(enforcers)
 	if err != nil {
-		s.logger.Printf("failed to encode enforcers for snapshot: %s", err.Error())
+		s.logger.Printf("failed to encode Enforcers for snapshot: %s", err.Error())
 		return nil, err
 	}
 	fsm.meta, err = json.Marshal(s.meta)
 	if err != nil {
-		s.logger.Printf("failed to encode meta for snapshot: %s", err.Error())
+		s.logger.Printf("failed to encode Meta for snapshot: %s", err.Error())
 		return nil, err
 	}
 	return fsm, nil
@@ -291,18 +301,28 @@ func (s *Store) Restore(closer io.ReadCloser) error {
 		return err
 	}
 	var meta map[string]map[string]string
-	err = json.Unmarshal(data.meta, &meta)
+	err = json.Unmarshal(data.Meta, &meta)
 	if err != nil {
 		return err
 	}
-	var enforcers map[string]casbin.DistributedEnforcer
-	err = json.Unmarshal(data.meta, &enforcers)
+	var enforcers map[string]EnforcerState
+	err = json.Unmarshal(data.Enforcers, &enforcers)
 	if err != nil {
 		return err
 	}
 	s.enforcers = sync.Map{}
 	for k, v := range enforcers {
-		s.enforcers.Store(k, v)
+		e, err := casbin.NewDistributedEnforcer()
+		if err != nil {
+			return err
+		}
+		m, err := CreateModelFormEnforcerState(v)
+		if err != nil {
+			return err
+		}
+		e.SetModel(m)
+		s.enforcers.Store(k, e)
+
 	}
 	return nil
 }

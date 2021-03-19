@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 	"time"
@@ -475,6 +476,109 @@ func Test_MultiNodeExecuteEnforceFreshness(t *testing.T) {
 	}
 	assert.Equal(t, true, r6)
 
+}
+
+func Test_SingleNodeSnapshotOnDisk(t *testing.T) {
+	s := mustNewStore()
+	defer os.RemoveAll(s.Path())
+
+	if err := s.Open(true); err != nil {
+		t.Fatalf("failed to open single-node store: %s", err.Error())
+	}
+	defer s.Close(true)
+	s.WaitForLeader(10 * time.Second)
+
+	err := s.CreateNamespace(context.TODO(), "default")
+	assert.Equal(t, nil, err)
+	err = s.SetModelFromString(context.TODO(), "default", modelText)
+	assert.Equal(t, nil, err)
+	err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+		{"alice", "data1", "read"},
+		{"bob", "data2", "write"},
+		{"data2_admin", "data2", "read"},
+		{"data2_admin", "data2", "write"},
+	})
+	assert.Equal(t, nil, err)
+	err = s.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
+		{"alice", "data2_admin"},
+	})
+	assert.Equal(t, nil, err)
+
+	// Snap the node and write to disk.
+	f, err := s.Snapshot()
+	if err != nil {
+		t.Fatalf("failed to snapshot node: %s", err.Error())
+	}
+
+	snapDir := mustTempDir()
+	defer os.RemoveAll(snapDir)
+	snapFile, err := os.Create(filepath.Join(snapDir, "snapshot"))
+	if err != nil {
+		t.Fatalf("failed to create snapshot file: %s", err.Error())
+	}
+	sink := &mockSnapshotSink{snapFile}
+	if err := f.Persist(sink); err != nil {
+		t.Fatalf("failed to persist snapshot to disk: %s", err.Error())
+	}
+
+	// Check restoration.
+	snapFile, err = os.Open(filepath.Join(snapDir, "snapshot"))
+	if err != nil {
+		t.Fatalf("failed to open snapshot file: %s", err.Error())
+	}
+	if err := s.Restore(snapFile); err != nil {
+		t.Fatalf("failed to restore snapshot from disk: %s", err.Error())
+	}
+
+	for _, set := range RBAC_TEST_SETS {
+		fmt.Println(set.input)
+		r, err := s.Enforce(context.TODO(), "default", command.EnforcePayload_QUERY_REQUEST_LEVEL_NONE, 0, set.input...)
+		assert.Equal(t, nil, err)
+		assert.Equal(t, set.expect, r)
+	}
+}
+
+func Test_IsLeader(t *testing.T) {
+	s := mustNewStore()
+	defer os.RemoveAll(s.Path())
+
+	if err := s.Open(true); err != nil {
+		t.Fatalf("failed to open single-node store: %s", err.Error())
+	}
+	defer s.Close(true)
+	s.WaitForLeader(10 * time.Second)
+
+	if !s.IsLeader() {
+		t.Fatalf("single node is not leader!")
+	}
+}
+
+func Test_State(t *testing.T) {
+	s := mustNewStore()
+	defer os.RemoveAll(s.Path())
+
+	if err := s.Open(true); err != nil {
+		t.Fatalf("failed to open single-node store: %s", err.Error())
+	}
+	defer s.Close(true)
+	s.WaitForLeader(10 * time.Second)
+
+	state := s.State()
+	if state != Leader {
+		t.Fatalf("single node returned incorrect state (not Leader): %v", s)
+	}
+}
+
+type mockSnapshotSink struct {
+	*os.File
+}
+
+func (m *mockSnapshotSink) ID() string {
+	return "1"
+}
+
+func (m *mockSnapshotSink) Cancel() error {
+	return nil
 }
 
 type EnforceData struct {
