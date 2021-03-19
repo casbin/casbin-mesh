@@ -18,6 +18,7 @@ type Context struct {
 	Request        *http.Request
 }
 
+// Next run the next handler func until out of range
 func (c *Context) Next() (err error) {
 	c.indexHandler++
 	if c.indexHandler < uint8(len(c.handlers)) {

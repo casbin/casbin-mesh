@@ -22,6 +22,7 @@ type handler struct {
 	cfg      Config
 }
 
+// ServeGRPC the endpoint of handle request
 func (h handler) ServeGRPC(ctx context.Context, request interface{}) (interface{}, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -35,6 +36,7 @@ func (h handler) ServeGRPC(ctx context.Context, request interface{}) (interface{
 	return c.Response(), nil
 }
 
+// CombineHandlers return a grpc Handler
 func CombineHandlers(cfg Config, h ...HandlerFunc) Handler {
 	return handler{cfg: cfg, handlers: h}
 }

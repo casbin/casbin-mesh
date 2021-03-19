@@ -12,16 +12,22 @@ import (
 
 type HandlerFunc func(*Context) error
 
-type Handler struct {
+type Handler interface {
+	http.Handler
+}
+
+type handler struct {
 	handlers []HandlerFunc
 	cfg      Config
 }
 
-func CombineHandlers(cfg Config, h ...HandlerFunc) http.Handler {
-	return &Handler{cfg: cfg, handlers: h}
+// CombineHandlers returns a http Handler
+func CombineHandlers(cfg Config, h ...HandlerFunc) Handler {
+	return &handler{cfg: cfg, handlers: h}
 }
 
-func (h Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP the endpoint of handle request
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c := newContext(context.Background(), h.handlers...)
 	c.Request = r
 	c.ResponseWriter = w

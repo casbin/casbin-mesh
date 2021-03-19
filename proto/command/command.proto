@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package command;
+
+option go_package = "/;command";
+
+message StringArray {
+  repeated string s = 1;
+}
+
+//message BytesArray {
+//  repeated bytes b = 1 ;
+//}
+
+//message Parameter {
+//  oneof value {
+//    sint64 i = 1;
+//    double d = 2;
+//    bool b = 3;
+//    bytes y = 4;
+//    string s = 5;
+//    BytesArray a = 7;
+//  }
+//}
+//
+//message Request{
+//  string ns = 1;
+//  repeated Parameter parameters = 2;
+//}
+
+message EnforcePayload {
+  repeated bytes b = 1;
+  bool timings = 2;
+  enum Level {
+    QUERY_REQUEST_LEVEL_NONE = 0;
+    QUERY_REQUEST_LEVEL_WEAK = 1;
+    QUERY_REQUEST_LEVEL_STRONG = 2;
+  }
+  Level level = 3;
+  int64 freshness = 4;
+}
+
+message SetModelFromString{
+  string text=1;
+}
+
+message AddPoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray rules = 3;
+}
+
+message RemovePoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray rules = 3;
+}
+
+message RemoveFilteredPolicyPayload {
+  string sec = 1;
+  string pType = 2;
+  int32  fieldIndex = 3;
+  repeated string fieldValues = 4;
+}
+
+message UpdatePolicyPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated string newRule = 3;
+  repeated string oldRule = 4;
+}
+
+message UpdatePoliciesPayload {
+  string sec = 1;
+  string pType = 2;
+  repeated StringArray newRules = 3;
+  repeated StringArray oldRules = 4;
+}
+
+enum Type {
+  COMMAND_TYPE_METADATA_SET = 0;
+  COMMAND_TYPE_METADATA_DELETE = 1;
+  COMMAND_TYPE_NOOP = 2;
+
+  COMMAND_TYPE_ENFORCE_REQUEST = 3;
+  COMMAND_TYPE_ADD_POLICIES = 4;
+  COMMAND_TYPE_REMOVE_POLICIES = 5;
+  COMMAND_TYPE_REMOVE_FILTERED_POLICY = 6;
+  COMMAND_TYPE_UPDATE_POLICY = 7;
+  COMMAND_TYPE_UPDATE_POLICIES = 8;
+  COMMAND_TYPE_CLEAR_POLICY = 9;
+  COMMAND_TYPE_SET_MODEL=10;
+  COMMAND_TYPE_CREATE_NS=11;
+}
+
+message Command {
+  Type type = 1;
+  // namespace
+  string ns = 2;
+  // payload
+  bytes payload = 3;
+  // metadata
+  map<string,string> md =4;
+  bool compressed = 5;
+}
+
+message MetadataSet {
+  string raft_id = 1;
+  map<string, string> data = 2;
+}
+
+message MetadataDelete {
+  string raft_id = 1;
+}
+
+message Noop {
+  string id = 1;
+}
