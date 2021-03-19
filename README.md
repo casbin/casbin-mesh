@@ -46,7 +46,7 @@ Read-only （non-voting） nodes
 
 ### Security State
 
-```json
+```bash
 state
 {
   pwd:string,
