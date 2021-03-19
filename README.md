@@ -46,7 +46,7 @@ Read-only （non-voting） nodes
 
 ### Security State
 
-```json
+```bash
 state
 {
   pwd:string,
@@ -62,10 +62,10 @@ state
 ### Basic
 ### Advantage
 ### Related Information
-- Raft[0]:  Raft: In Search of an Understandable Consensus Algorithm
+- Raft[0]:  [Raft: In Search of an Understandable Consensus Algorithm](https://raft.github.io/raft.pdf)
 - Hashicorp/Raft[1]: https://github.com/hashicorp/raft
 - bboltDB[2]: https://github.com/etcd-io/bbolt
-- Image-0[3] : Kyle Kingsbury's article on linearizability and stale reads in Raft systems
+- Image-0[3] : [Kyle Kingsbury's article on linearizability and stale reads in Raft systems](https://aphyr.com/posts/316-jepsen-etcd-and-consul)
 - rqlite[4] :https://github.com/rqlite/rqlite
 - Level [5]: https://github.com/rqlite/rqlite/blob/master/DOC/CONSISTENCY.md
 - SCRAM[6]:https://tools.ietf.org/html/rfc5802
