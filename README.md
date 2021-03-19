@@ -12,7 +12,6 @@ Casbin-Mesh （以下简称：应用）意在为用户提供一种可以开箱�
 ## Backup and Restore
 备份和恢复主要分为两种类型：Snapshot 和 Log，区别主要在于 Log 可支持有限的回滚（例如，在未来可能支持的事务操作中，通过 Log 备份将一个生产环境中的数据备份到另一个生产环境中，应用仍然可以对现有 Log 进行撤销提交操作来进行数据回滚）。
 ## Read consistency (Read preference)
-权限控制服务是一个读多写少的模型，尽管如此，我们也希望将 Read Consistency 的控制权交给用户，像大多数基于 Raft 一致性算法的应用一样。
 
 让我们想象以下的情况，我们有一个 Casbin 集群，从 follower (secondary) 节点查询数据。当出现下列情况时，我们可能会读取到一些旧的数据（stale read）。
 节点依然是集群的一部分，但是在内存数据更新上已落后 Leader。
