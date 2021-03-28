@@ -72,6 +72,7 @@ type AssertionState struct {
 	PolicyMap map[string]int
 }
 
+// CreateEnforcerState transform enforce state to persisting state
 func CreateEnforcerState(e *casbin.DistributedEnforcer) (EnforcerState, error) {
 	if e == nil {
 		return EnforcerState{}, errors.New("nil input")
@@ -98,6 +99,7 @@ func CreateEnforcerState(e *casbin.DistributedEnforcer) (EnforcerState, error) {
 	return es, nil
 }
 
+// CreateModelFormEnforcerState create enforcer state and add links of rule groups
 func CreateModelFormEnforcerState(state EnforcerState) (model2.Model, error) {
 	m := model2.NewModel()
 	for k, assertionMap := range state.Model {
