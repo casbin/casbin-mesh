@@ -43,7 +43,6 @@ var (
 	httpAdv                string
 	joinSrcIP              string
 	tls1011                bool
-	authFile               string
 	x509CACert             string
 	x509Cert               string
 	x509Key                string
@@ -60,7 +59,6 @@ var (
 	noVerify               bool
 	noNodeVerify           bool
 	pprofEnabled           bool
-	onDisk                 bool
 	raftLogLevel           string
 	raftNonVoter           bool
 	raftSnapThreshold      uint64
@@ -81,7 +79,7 @@ var (
 
 const name = `casbind`
 const desc = `casbind is a lightweight, distributed casbin service, which uses casbin as its
-engine. It provides an easy-to-use, fault-tolerant for casbin.`
+engine.`
 
 func init() {
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
@@ -105,7 +103,6 @@ func init() {
 	flag.StringVar(&joinInterval, "join-interval", "5s", "Period between join attempts")
 	flag.BoolVar(&expvar, "expvar", true, "Serve expvar data on HTTP server")
 	flag.BoolVar(&pprofEnabled, "pprof", true, "Serve pprof data on HTTP server")
-	flag.BoolVar(&onDisk, "on-disk", false, "Use an on-disk SQLite database")
 	flag.BoolVar(&showVersion, "version", false, "Show version information and exit")
 	flag.BoolVar(&raftNonVoter, "raft-non-voter", false, "Configure as non-voting node")
 	flag.StringVar(&raftHeartbeatTimeout, "raft-timeout", "1s", "Raft heartbeat timeout")

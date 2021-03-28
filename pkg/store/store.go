@@ -220,23 +220,6 @@ func (s *Store) Open(enableBootstrap bool) error {
 	s.logger.Printf("first log index: %d, last log index: %d, last command log index: %d:",
 		s.firstIdxOnOpen, s.lastIdxOnOpen, s.lastCommandIdxOnOpen)
 
-	//// If an on-disk database has been requested, and there are no snapshots, and
-	//// there are no commands in the log, then this is the only opportunity to
-	//// create that on-disk database file before Raft initializes.
-	//if !s.dbConf.Memory && !s.snapsExistOnOpen && s.lastCommandIdxOnOpen == 0 {
-	//	s.db, err = s.openOnDisk(nil)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to open on-disk database")
-	//	}
-	//	s.onDiskCreated = true
-	//} else {
-	//	// We need an in-memory database, at least for bootstrapping purposes.
-	//	s.db, err = s.openInMemory(nil)
-	//	if err != nil {
-	//		return fmt.Errorf("failed to open in-memory database")
-	//	}
-	//}
-
 	// Instantiate the Raft system.
 	ra, err := raft.NewRaft(config, s, s.raftLog, s.raftStable, snapshots, s.raftTn)
 	if err != nil {
@@ -313,10 +296,7 @@ func (s *Store) Close(wait bool) error {
 			return e.Error()
 		}
 	}
-	// Only shutdown Bolt and SQLite when Raft is done.
-	//if err := s.db.Close(); err != nil {
-	//	return err
-	//}
+
 	if err := s.boltStore.Close(); err != nil {
 		return err
 	}
@@ -437,13 +417,6 @@ func (s *Store) WaitForLeader(timeout time.Duration) (string, error) {
 	}
 }
 
-//// SetRequestCompression allows low-level control over the compression threshold
-//// for the request marshaler.
-//func (s *Store) SetRequestCompression(batch, size int) {
-//	s.reqMarshaller.BatchThreshold = batch
-//	s.reqMarshaller.SizeThreshold = size
-//}
-
 // WaitForAppliedIndex blocks until a given log index has been applied,
 // or the timeout expires.
 func (s *Store) WaitForAppliedIndex(idx uint64, timeout time.Duration) error {
@@ -466,32 +439,6 @@ func (s *Store) WaitForAppliedIndex(idx uint64, timeout time.Duration) error {
 
 // Stats returns stats for the store.
 func (s *Store) Stats() (map[string]interface{}, error) {
-	//fkEnabled, err := s.db.FKConstraints()
-	//if err != nil {
-	//	return nil, err
-	//}
-
-	//dbSz, err := s.db.Size()
-	//if err != nil {
-	//	return nil, err
-	//}
-	//dbStatus := map[string]interface{}{
-	//	"dsn":            s.dbConf.DSN,
-	//	"fk_constraints": enabledFromBool(fkEnabled),
-	//	"version":        sql.DBVersion,
-	//	"db_size":        dbSz,
-	//}
-	//if s.dbConf.Memory {
-	//	dbStatus["path"] = ":memory:"
-	//} else {
-	//	dbStatus["path"] = s.dbPath
-	//	if s.onDiskCreated {
-	//		if dbStatus["size"], err = s.db.FileSize(); err != nil {
-	//			return nil, err
-	//		}
-	//	}
-	//}
-
 	nodes, err := s.Nodes()
 	if err != nil {
 		return nil, err
