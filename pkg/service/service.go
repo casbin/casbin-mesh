@@ -65,7 +65,42 @@ func (s service) Stats(ctx context.Context) (map[string]interface{}, error) {
 	return s.store.Stats()
 }
 
+func (s service) IsLeader(ctx context.Context) bool {
+	return s.store.IsLeader()
+}
+
+func (s service) LeaderAddr(ctx context.Context) string {
+	return s.store.LeaderAddr()
+}
+
+// LeaderAPIAddr returns the API address of the leader, as known by this node.
+func (s service) LeaderAPIAddr() string {
+	id, err := s.store.LeaderID()
+	if err != nil {
+		return ""
+	}
+	return s.store.Metadata(id, "api_addr")
+}
+
+// LeaderAPIProto returns the protocol used by the leader, as known by this node.
+func (s service) LeaderAPIProto() string {
+	id, err := s.store.LeaderID()
+	if err != nil {
+		return "http"
+	}
+
+	p := s.store.Metadata(id, "api_proto")
+	if p == "" {
+		return "http"
+	}
+	return p
+}
+
 type Service interface {
+	LeaderAPIProto() string
+	LeaderAPIAddr() string
+	IsLeader(ctx context.Context) bool
+	LeaderAddr(ctx context.Context) string
 	Stats(ctx context.Context) (map[string]interface{}, error)
 	CreateNamespace(ctx context.Context, ns string) error
 	SetModelFromString(ctx context.Context, ns string, text string) error

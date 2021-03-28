@@ -19,21 +19,31 @@ type Context struct {
 	Request        *http.Request
 }
 
+func (c *Context) Clone() *Context {
+	return &Context{
+		Context:        c.Context,
+		indexHandler:   c.indexHandler,
+		handlers:       c.handlers,
+		ResponseWriter: c.ResponseWriter,
+		Request:        c.Request.Clone(context.TODO()),
+	}
+
+}
+
 func (c *Context) StatusCode(code int) *Context {
 	c.ResponseWriter.WriteHeader(code)
 	return c
 }
 
 func (c *Context) Write(resp interface{}) error {
-	c.ResponseWriter.Header().Add("Content-Type", "application/json")
 	return json.NewEncoder(c.ResponseWriter).Encode(resp)
 }
 
 // Next run the next handler func until out of range
 func (c *Context) Next() (err error) {
-	c.indexHandler++
-	if c.indexHandler < int8(len(c.handlers)) {
+	for c.indexHandler < int8(len(c.handlers)) {
 		err = c.handlers[c.indexHandler](c)
+		c.indexHandler++
 	}
 	return err
 }
@@ -41,7 +51,7 @@ func (c *Context) Next() (err error) {
 func newContext(ctx context.Context, h ...HandlerFunc) Context {
 	return Context{
 		Context:      ctx,
-		indexHandler: -1,
+		indexHandler: 0,
 		handlers:     h,
 	}
 }

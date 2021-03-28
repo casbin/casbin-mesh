@@ -9,8 +9,11 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	http2 "net/http"
+	"net/http/httputil"
+	url2 "net/url"
 
 	"github.com/WenyXu/casbind/pkg/transport/http"
 	"github.com/go-playground/validator"
@@ -22,21 +25,39 @@ type httpService struct {
 	*validator.Validate
 }
 
+type Middleware func(handlerFunc http.HandlerFunc) http.HandlerFunc
+
+func chain(outer Middleware, others ...Middleware) Middleware {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		for i := len(others) - 1; i >= 0; i-- {
+			next = others[i](next)
+		}
+		return outer(next)
+	}
+}
+
 func NewHttpService(core Service) *httpService {
 	s := http.New()
 	validate := validator.New()
 	ser := httpService{s, core, validate}
+	// set response header
+	s.Use(setResponseHeader)
+
 	s.Handle("/join", ser.handleJoin)
 	s.Handle("/remove", ser.handleRemove)
-	s.Handle("/create/namespace", ser.handleCreateNameSpace)
-	s.Handle("/set/model", ser.handleSetModelFromString)
+
+	// write
+	s.Handle("/create/namespace", chain(ser.autoForwardToLeader)(ser.handleCreateNameSpace))
+	s.Handle("/set/model", chain(ser.autoForwardToLeader)(ser.handleSetModelFromString))
+	s.Handle("/add/policies", chain(ser.autoForwardToLeader)(ser.handleAddPolicies))
+	s.Handle("/remove/policies", chain(ser.autoForwardToLeader)(ser.handleRemovePolicies))
+	s.Handle("/remove/filtered_policies", chain(ser.autoForwardToLeader)(ser.handleRemoveFilteredPolicy))
+	s.Handle("/update/policies", chain(ser.autoForwardToLeader)(ser.handleUpdatePolicies))
+	s.Handle("/update/policy", chain(ser.autoForwardToLeader)(ser.handleUpdatePolicy))
+	s.Handle("/clear/policy", chain(ser.autoForwardToLeader)(ser.handleClearPolicy))
+
+	// read
 	s.Handle("/enforce", ser.handleEnforce)
-	s.Handle("/add/policies", ser.handleAddPolicies)
-	s.Handle("/remove/policies", ser.handleRemovePolicies)
-	s.Handle("/remove/filtered_policies", ser.handleRemoveFilteredPolicy)
-	s.Handle("/update/policies", ser.handleUpdatePolicies)
-	s.Handle("/update/policy", ser.handleUpdatePolicy)
-	s.Handle("/clear/policy", ser.handleClearPolicy)
 	s.Handle("/stats", ser.handleStats)
 	return &ser
 }
@@ -46,6 +67,28 @@ type JoinRequest struct {
 	Addr     string            `json:"addr" validate:"required"`
 	Voter    bool              `json:"voter" validate:"required"`
 	Metadata map[string]string `json:"metadata"`
+}
+
+func setResponseHeader(ctx *http.Context) error {
+	fmt.Println("header set")
+	ctx.ResponseWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
+	return nil
+}
+
+func (s *httpService) autoForwardToLeader(fn http.HandlerFunc) http.HandlerFunc {
+	return func(c *http.Context) error {
+		if s.IsLeader(context.TODO()) {
+			return fn(c)
+		} else {
+			urlStr := fmt.Sprintf("%s://%s", s.LeaderAPIProto(), s.LeaderAPIAddr())
+			remote, err := url2.Parse(urlStr)
+			if err != nil {
+				return err
+			}
+			httputil.NewSingleHostReverseProxy(remote).ServeHTTP(c.ResponseWriter, c.Request)
+		}
+		return nil
+	}
 }
 
 func (s *httpService) handleJoin(ctx *http.Context) (err error) {

@@ -38,9 +38,9 @@ func (c *Context) Request() interface{} {
 
 // Next run the next handler func until out of range
 func (c *Context) Next() (err error) {
-	c.indexHandler++
-	if c.indexHandler < uint8(len(c.handlers)) {
+	for c.indexHandler < uint8(len(c.handlers)) {
 		err = c.handlers[c.indexHandler](c)
+		c.indexHandler++
 	}
 	return err
 }
@@ -50,7 +50,7 @@ func newContext(ctx context.Context, md metadata.MD, request interface{}, h ...H
 		Context:      ctx,
 		request:      request,
 		md:           md,
-		indexHandler: -1,
+		indexHandler: 0,
 		handlers:     h,
 	}
 }

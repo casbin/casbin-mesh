@@ -35,6 +35,8 @@ type FSMEnforceResponse struct {
 }
 
 var (
+	NamespaceExisted = errors.New("namespace already existed")
+
 	// NamespaceNotExist namespace not created
 	NamespaceNotExist = errors.New("namespace not exist")
 	// UnmarshalFail unmarshal failed
@@ -74,10 +76,15 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 		}
 		return &FSMResponse{error: NamespaceNotExist}
 	case command.Type_COMMAND_TYPE_CREATE_NS:
+		_, ok := s.enforcers.Load(cmd.Ns)
+		if ok {
+			return &FSMResponse{NamespaceExisted}
+		}
 		e, err := casbin.NewDistributedEnforcer()
 		if err != nil {
 			return &FSMResponse{error: err}
 		}
+
 		s.enforcers.Store(cmd.Ns, e)
 		return &FSMResponse{}
 	case command.Type_COMMAND_TYPE_SET_MODEL:

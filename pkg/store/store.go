@@ -596,3 +596,18 @@ func (s *Store) remove(id string) error {
 
 	return nil
 }
+
+// Metadata returns the value for a given key, for a given node ID.
+func (s *Store) Metadata(id, key string) string {
+	s.metaMu.RLock()
+	defer s.metaMu.RUnlock()
+
+	if _, ok := s.meta[id]; !ok {
+		return ""
+	}
+	v, ok := s.meta[id][key]
+	if ok {
+		return v
+	}
+	return ""
+}

@@ -32,7 +32,7 @@ func (s *server) Use(middlewares ...HandlerFunc) {
 // Handle registers the handler for the given pattern.
 // If a handler already exists for pattern, Handle panics.
 func (s *server) Handle(pattern string, handlers ...HandlerFunc) {
-	s.ServeMux.Handle(pattern, CombineHandlers(s.cfg, append(s.middlewares, handlers...)...))
+	s.ServeMux.Handle(pattern, CombineHandlers(s.cfg, append(append([]HandlerFunc{}, s.middlewares...), handlers...)...))
 }
 
 type Server interface {
