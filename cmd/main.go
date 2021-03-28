@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WenyXu/casbind/pkg/auth"
 	"github.com/WenyXu/casbind/pkg/service"
 
 	"github.com/WenyXu/casbind/pkg/cluster"
@@ -99,7 +98,6 @@ func init() {
 	flag.StringVar(&nodeX509Cert, "node-cert", "cert.pem", "Path to X.509 certificate for node-to-node encryption")
 	flag.StringVar(&nodeX509Key, "node-key", "key.pem", "Path to X.509 private key for node-to-node encryption")
 	flag.BoolVar(&noNodeVerify, "node-no-verify", false, "Skip verification of a remote node cert")
-	flag.StringVar(&authFile, "auth", "", "Path to authentication and authorization file. If not set, not enabled")
 	flag.StringVar(&raftAddr, "raft-addr", "localhost:4002", "Raft communication bind address")
 	flag.StringVar(&raftAdv, "raft-adv-addr", "", "Advertised Raft communication address. If not set, same as Raft bind")
 	flag.StringVar(&joinAddr, "join", "", "Comma-delimited list of nodes, through which a cluster can be joined (proto://host:port)")
@@ -389,23 +387,6 @@ func startHTTPService(str *store.Store) error {
 		}
 	}()
 	return nil
-}
-
-func credentialStore() (*auth.CredentialsStore, error) {
-	if authFile == "" {
-		return nil, nil
-	}
-
-	f, err := os.Open(authFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open authentication file %s: %s", authFile, err.Error())
-	}
-
-	cs := auth.NewCredentialsStore()
-	if cs.Load(f); err != nil {
-		return nil, err
-	}
-	return cs, nil
 }
 
 func idOrRaftAddr() string {
