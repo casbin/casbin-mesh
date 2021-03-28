@@ -29,7 +29,7 @@ func err2code(err error) int {
 
 func ErrorEncoder(_ context.Context, err error, w http.ResponseWriter) {
 	w.WriteHeader(err2code(err))
-	json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})
+	_ = json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})
 }
 
 var (

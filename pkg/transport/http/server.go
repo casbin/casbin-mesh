@@ -15,7 +15,7 @@ type server struct {
 	middlewares []HandlerFunc
 }
 
-func New() *server {
+func New() Server {
 	return &server{cfg: DefaultConfig(), ServeMux: http.NewServeMux()}
 }
 
@@ -38,4 +38,5 @@ func (s *server) Handle(pattern string, handlers ...HandlerFunc) {
 type Server interface {
 	http.Handler
 	Use(middleware ...HandlerFunc)
+	Handle(pattern string, handlers ...HandlerFunc)
 }

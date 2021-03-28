@@ -15,3 +15,9 @@
 # vendor/
 
 .idea
+main
+.node*
+
+cert_tmp
+test/_*
+test/tmp*

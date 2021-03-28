@@ -228,7 +228,7 @@ func Test_LogLastCommandIndexNotExist(t *testing.T) {
 // mustTempFile returns a path to a temporary file in directory dir. It is up to the
 // caller to remove the file once it is no longer needed.
 func mustTempFile() string {
-	tmpfile, err := ioutil.TempFile("", "rqlite-db-test")
+	tmpfile, err := ioutil.TempFile("", "casbind-db-test")
 	if err != nil {
 		panic(err.Error())
 	}
