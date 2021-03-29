@@ -37,29 +37,29 @@ func chain(outer Middleware, others ...Middleware) Middleware {
 }
 
 func NewHttpService(core Service) *httpService {
-	s := http.New()
+	httpS := http.New()
 	validate := validator.New()
-	ser := httpService{s, core, validate}
+	srv := httpService{httpS, core, validate}
 	// set response header
-	s.Use(setResponseHeader)
+	httpS.Use(setResponseHeader)
 
-	s.Handle("/join", ser.handleJoin)
-	s.Handle("/remove", ser.handleRemove)
+	httpS.Handle("/join", srv.handleJoin)
+	httpS.Handle("/remove", srv.handleRemove)
 
 	// write
-	s.Handle("/create/namespace", chain(ser.autoForwardToLeader)(ser.handleCreateNameSpace))
-	s.Handle("/set/model", chain(ser.autoForwardToLeader)(ser.handleSetModelFromString))
-	s.Handle("/add/policies", chain(ser.autoForwardToLeader)(ser.handleAddPolicies))
-	s.Handle("/remove/policies", chain(ser.autoForwardToLeader)(ser.handleRemovePolicies))
-	s.Handle("/remove/filtered_policies", chain(ser.autoForwardToLeader)(ser.handleRemoveFilteredPolicy))
-	s.Handle("/update/policies", chain(ser.autoForwardToLeader)(ser.handleUpdatePolicies))
-	s.Handle("/update/policy", chain(ser.autoForwardToLeader)(ser.handleUpdatePolicy))
-	s.Handle("/clear/policy", chain(ser.autoForwardToLeader)(ser.handleClearPolicy))
+	httpS.Handle("/create/namespace", chain(srv.autoForwardToLeader)(srv.handleCreateNameSpace))
+	httpS.Handle("/set/model", chain(srv.autoForwardToLeader)(srv.handleSetModelFromString))
+	httpS.Handle("/add/policies", chain(srv.autoForwardToLeader)(srv.handleAddPolicies))
+	httpS.Handle("/remove/policies", chain(srv.autoForwardToLeader)(srv.handleRemovePolicies))
+	httpS.Handle("/remove/filtered_policies", chain(srv.autoForwardToLeader)(srv.handleRemoveFilteredPolicy))
+	httpS.Handle("/update/policies", chain(srv.autoForwardToLeader)(srv.handleUpdatePolicies))
+	httpS.Handle("/update/policy", chain(srv.autoForwardToLeader)(srv.handleUpdatePolicy))
+	httpS.Handle("/clear/policy", chain(srv.autoForwardToLeader)(srv.handleClearPolicy))
 
 	// read
-	s.Handle("/enforce", ser.handleEnforce)
-	s.Handle("/stats", ser.handleStats)
-	return &ser
+	httpS.Handle("/enforce", srv.handleEnforce)
+	httpS.Handle("/stats", srv.handleStats)
+	return &srv
 }
 
 type JoinRequest struct {
@@ -70,7 +70,6 @@ type JoinRequest struct {
 }
 
 func setResponseHeader(ctx *http.Context) error {
-	fmt.Println("header set")
 	ctx.ResponseWriter.Header().Set("Content-Type", "application/json; charset=utf-8")
 	return nil
 }
@@ -278,7 +277,7 @@ type ClearPolicyRequest struct {
 }
 
 func (s *httpService) handleClearPolicy(ctx *http.Context) (err error) {
-	var request UpdatePoliciesRequest
+	var request ClearPolicyRequest
 	if err = s.decode(ctx.Request.Body, &request); err != nil {
 		return
 	}

@@ -37,7 +37,9 @@ Level 定义如下：
 - None: 从本地内存响应查询
 - Weak: 从 Leader 读取数据，从本地内存检查是否为 Leader
 - Strong: 从 Leader 读取数据，在集群中询问（多数的）节点当前节点是否为 Leader
-Read-only （non-voting） nodes
+
+### Read-only （non-voting） nodes
+
 如上文所提到的，权限控制是一个读多写少的模型。我们通过支持添加 Read-only 节点来增加集群的读性能，同时不会增加写入延迟（即订阅来自 Leader 的 Logs 并可以接受一定的写延迟）。Read-only 节点不参与 Raft 共识系统，也不参与投票（其节点数量不计算在投票的总节点数中）。
 在 Read-only 节点中读取数据，通过设置查询 Level = None ，并设置数据陈旧情况的阈值。在查询中通过比较给定阈值和当前时间于最后收到来自 Leader 心跳包的时间差，来决定当前查询是否有效（即时间差大于阈值说明数据过于陈旧）。
   
