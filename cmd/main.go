@@ -383,6 +383,7 @@ func startHTTPService(str *store.Store) error {
 			fmt.Println("HTTP service Serve() returned:", err.Error())
 		}
 	}()
+
 	return nil
 }
 
