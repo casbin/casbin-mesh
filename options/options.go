@@ -6,8 +6,8 @@ Copyright The casbind Authors.
 package options
 
 import (
-	"github.com/WenyXu/casbind/pkg/transport/grpc"
-	"github.com/WenyXu/casbind/pkg/transport/http"
+	"github.com/casbin/casbin-mesh/pkg/transport/grpc"
+	"github.com/casbin/casbin-mesh/pkg/transport/http"
 )
 
 type Options struct {

@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WenyXu/casbind/proto/command"
+	"github.com/casbin/casbin-mesh/proto/command"
 
 	"github.com/stretchr/testify/assert"
 )

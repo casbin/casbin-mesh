@@ -19,9 +19,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/WenyXu/casbind/proto/command"
+	"github.com/casbin/casbin-mesh/proto/command"
 
-	rlog "github.com/WenyXu/casbind/pkg/log"
+	rlog "github.com/casbin/casbin-mesh/pkg/log"
 	"github.com/hashicorp/raft"
 )
 

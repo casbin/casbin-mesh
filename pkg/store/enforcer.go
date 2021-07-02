@@ -12,7 +12,7 @@ import (
 
 	"github.com/casbin/casbin/v2"
 
-	"github.com/WenyXu/casbind/proto/command"
+	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 )

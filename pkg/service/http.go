@@ -15,7 +15,7 @@ import (
 	"net/http/httputil"
 	url2 "net/url"
 
-	"github.com/WenyXu/casbind/pkg/transport/http"
+	"github.com/casbin/casbin-mesh/pkg/transport/http"
 	"github.com/go-playground/validator"
 )
 

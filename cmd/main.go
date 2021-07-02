@@ -22,11 +22,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WenyXu/casbind/pkg/service"
+	"github.com/casbin/casbin-mesh/pkg/service"
 
-	"github.com/WenyXu/casbind/pkg/cluster"
-	"github.com/WenyXu/casbind/pkg/store"
-	"github.com/WenyXu/casbind/pkg/transport/tcp"
+	"github.com/casbin/casbin-mesh/pkg/cluster"
+	"github.com/casbin/casbin-mesh/pkg/store"
+	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
 )
 
 var (

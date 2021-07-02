@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WenyXu/casbind/pkg/utils"
+	"github.com/casbin/casbin-mesh/pkg/utils"
 )
 
 var (

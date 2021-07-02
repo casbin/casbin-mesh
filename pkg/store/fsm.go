@@ -20,7 +20,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/WenyXu/casbind/proto/command"
+	"github.com/casbin/casbin-mesh/proto/command"
 
 	"github.com/hashicorp/raft"
 )

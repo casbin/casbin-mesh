@@ -8,9 +8,9 @@ package service
 import (
 	"context"
 
-	"github.com/WenyXu/casbind/proto/command"
+	"github.com/casbin/casbin-mesh/proto/command"
 
-	"github.com/WenyXu/casbind/pkg/store"
+	"github.com/casbin/casbin-mesh/pkg/store"
 )
 
 type service struct {
