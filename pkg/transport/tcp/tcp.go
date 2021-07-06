@@ -38,6 +38,11 @@ func NewTLSTransport(certFile, keyPath string, skipVerify bool) *Transport {
 	}
 }
 
+// NewTransportFromListener returns an initialized Transport
+func NewTransportFromListener(ln net.Listener, remoteEncrypted bool, skipVerify bool) *Transport {
+	return &Transport{ln: ln, remoteEncrypted: remoteEncrypted, skipVerify: skipVerify}
+}
+
 // Open opens the transport, binding to the supplied address.
 func (t *Transport) Open(addr string) error {
 	ln, err := net.Listen("tcp", addr)
@@ -116,3 +121,5 @@ func createTLSConfig(certFile, keyFile string) (*tls.Config, error) {
 	}
 	return config, nil
 }
+
+var CreateTLSConfig = createTLSConfig

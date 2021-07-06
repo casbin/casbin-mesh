@@ -22,11 +22,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
+
+	"github.com/soheilhy/cmux"
+
 	"github.com/casbin/casbin-mesh/pkg/service"
 
 	"github.com/casbin/casbin-mesh/pkg/cluster"
 	"github.com/casbin/casbin-mesh/pkg/store"
-	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
 )
 
 var (
@@ -162,15 +165,33 @@ func main() {
 	startProfile(cpuProfile, memProfile)
 
 	// Create internode network layer.
-	var tn *tcp.Transport
+	var ln net.Listener
 	if nodeEncrypt {
 		log.Printf("enabling node-to-node encryption with cert: %s, key: %s", nodeX509Cert, nodeX509Key)
-		tn = tcp.NewTLSTransport(nodeX509Cert, nodeX509Key, noVerify)
+		cfg, err := tcp.CreateTLSConfig(nodeX509Cert, nodeX509Key)
+		if err != nil {
+			log.Fatalf("failed to create tls config: %s", err.Error())
+		}
+		ln, err = tls.Listen("tcp", raftAddr, cfg)
+		if err != nil {
+			log.Fatalf("failed to open internode network layer: %s", err.Error())
+		}
 	} else {
-		tn = tcp.NewTransport()
+		var err error
+		ln, err = net.Listen("tcp", raftAddr)
+		if err != nil {
+			log.Fatalf("failed to open internode network layer: %s", err.Error())
+		}
 	}
-	if err := tn.Open(raftAddr); err != nil {
-		log.Fatalf("failed to open internode network layer: %s", err.Error())
+	mux := cmux.New(ln)
+	httpLn := mux.Match(cmux.HTTP1())
+	raftLnBase := mux.Match(cmux.Any())
+	go mux.Serve()
+	var raftLn *tcp.Transport
+	if nodeEncrypt {
+		raftLn = tcp.NewTransportFromListener(raftLnBase, true, noVerify)
+	} else {
+		raftLn = tcp.NewTransportFromListener(raftLnBase, false, false)
 	}
 
 	// Create and open the store.
@@ -179,7 +200,7 @@ func main() {
 		log.Fatalf("failed to determine absolute data path: %s", err.Error())
 	}
 
-	str := store.New(tn, &store.StoreConfig{
+	str := store.New(raftLn, &store.StoreConfig{
 		Dir: dataPath,
 		ID:  idOrRaftAddr(),
 	})
@@ -246,9 +267,9 @@ func main() {
 	}
 
 	// Prepare metadata for join command.
-	apiAdv := httpAddr
+	apiAdv := raftAddr
 	if httpAdv != "" {
-		apiAdv = httpAdv
+		apiAdv = raftAddr
 	}
 	apiProto := "http"
 	if x509Cert != "" {
@@ -307,7 +328,7 @@ func main() {
 	}
 
 	// Start the HTTP API server.
-	if err := startHTTPService(str); err != nil {
+	if err := startHTTPService(str, httpLn); err != nil {
 		log.Fatalf("failed to start HTTP server: %s", err.Error())
 	}
 	log.Println("node is ready")
@@ -359,26 +380,26 @@ func waitForConsensus(str *store.Store) error {
 	return nil
 }
 
-func startHTTPService(str *store.Store) error {
+func startHTTPService(str *store.Store, ln net.Listener) error {
 	core := service.New(str)
 	httpd := service.NewHttpService(core)
-	var l net.Listener
-	var err error
-	if x509Cert == "" || x509Key == "" {
-		l, err = net.Listen("tcp", httpAddr)
-		if err != nil {
-			return err
-		}
-	} else {
-		config, err := service.CreateTLSConfig(x509Cert, x509Key, x509CACert, tls1011)
-		if err != nil {
-			return err
-		}
-		l, err = tls.Listen("tcp", httpAddr, config)
-	}
+	//var l net.Listener
+	//var err error
+	//if x509Cert == "" || x509Key == "" {
+	//	l, err = net.Listen("tcp", httpAddr)
+	//	if err != nil {
+	//		return err
+	//	}
+	//} else {
+	//	config, err := service.CreateTLSConfig(x509Cert, x509Key, x509CACert, tls1011)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	l, err = tls.Listen("tcp", httpAddr, config)
+	//}
 
 	go func() {
-		err := http.Serve(l, httpd)
+		err := http.Serve(ln, httpd)
 		if err != nil {
 			fmt.Println("HTTP service Serve() returned:", err.Error())
 		}
