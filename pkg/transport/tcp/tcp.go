@@ -2,7 +2,7 @@ package tcp
 
 import (
 	"crypto/tls"
-	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -74,7 +74,7 @@ func (t *Transport) Dial(addr string, timeout time.Duration) (net.Conn, error) {
 		conf := &tls.Config{
 			InsecureSkipVerify: t.skipVerify,
 		}
-		fmt.Println("doing a TLS dial")
+		log.Println("doing a TLS dial")
 		conn, err = tls.DialWithDialer(dialer, "tcp", addr, conf)
 	} else {
 		conn, err = dialer.Dial("tcp", addr)
@@ -87,7 +87,7 @@ func (t *Transport) Dial(addr string, timeout time.Duration) (net.Conn, error) {
 func (t *Transport) Accept() (net.Conn, error) {
 	c, err := t.ln.Accept()
 	if err != nil {
-		fmt.Println("error accepting: ", err.Error())
+		log.Println("error accepting: ", err.Error())
 	}
 	return c, err
 }

@@ -20,11 +20,10 @@ func (s *Store) AddPolicies(ctx context.Context, ns string, sec string, pType st
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_ADD_POLICIES,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_ADD_POLICIES,
+		Namespace: ns,
+		Payload:   payload,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -53,11 +52,10 @@ func (s *Store) RemovePolicies(ctx context.Context, ns string, sec string, pType
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_REMOVE_POLICIES,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_REMOVE_POLICIES,
+		Namespace: ns,
+		Payload:   payload,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -87,45 +85,10 @@ func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string,
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_REMOVE_FILTERED_POLICY,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
-	})
-	if err != nil {
-		return err
-	}
-
-	f := s.raft.Apply(cmd, s.ApplyTimeout)
-	if e := f.(raft.Future); e.Error() != nil {
-		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
-		}
-		return e.Error()
-	}
-	r := f.Response().(*FSMResponse)
-	return r.error
-}
-
-// UpdatePolicy implements the casbin.Adapter interface.
-func (s *Store) UpdatePolicy(ctx context.Context, ns string, sec string, pType string, nr, or []string) error {
-	payload, err := proto.Marshal(&command.UpdatePolicyPayload{
-		Sec:     sec,
-		PType:   pType,
-		NewRule: nr,
-		OldRule: or,
-	})
-	if err != nil {
-		return err
-	}
-
-	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_UPDATE_POLICY,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_REMOVE_FILTERED_POLICY,
+		Namespace: ns,
+		Payload:   payload,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -155,11 +118,10 @@ func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_UPDATE_POLICIES,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_UPDATE_POLICIES,
+		Namespace: ns,
+		Payload:   payload,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -179,11 +141,10 @@ func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType
 // ClearPolicy implements the casbin.Adapter interface.
 func (s *Store) ClearPolicy(ctx context.Context, ns string) error {
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_CLEAR_POLICY,
-		Ns:         ns,
-		Payload:    nil,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_CLEAR_POLICY,
+		Namespace: ns,
+		Payload:   nil,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err

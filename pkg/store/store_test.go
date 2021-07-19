@@ -668,7 +668,7 @@ func mustMockLister(addr string) Listener {
 
 func mustTempDir() string {
 	var err error
-	path, err := ioutil.TempDir("", "casbind-test-")
+	path, err := ioutil.TempDir("", "casbin-mesh-test-")
 	if err != nil {
 		panic("failed to create temp dir")
 	}

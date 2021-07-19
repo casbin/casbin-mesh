@@ -15,11 +15,10 @@ import (
 // CreateNamespace creates a new namespace.
 func (s *Store) CreateNamespace(ctx context.Context, ns string) error {
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_CREATE_NS,
-		Ns:         ns,
-		Payload:    nil,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_CREATE_NAMESPACE,
+		Namespace: ns,
+		Payload:   nil,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -45,11 +44,10 @@ func (s *Store) SetModelFromString(ctx context.Context, ns string, text string) 
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
-		Type:       command.Type_COMMAND_TYPE_SET_MODEL,
-		Ns:         ns,
-		Payload:    payload,
-		Md:         nil,
-		Compressed: false,
+		Type:      command.Type_COMMAND_TYPE_SET_MODEL,
+		Namespace: ns,
+		Payload:   payload,
+		Metadata:  nil,
 	})
 	if err != nil {
 		return err
@@ -87,11 +85,10 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 		}
 
 		cmd, err := proto.Marshal(&command.Command{
-			Type:       command.Type_COMMAND_TYPE_ENFORCE_REQUEST,
-			Ns:         ns,
-			Payload:    payload,
-			Md:         nil,
-			Compressed: false,
+			Type:      command.Type_COMMAND_TYPE_ENFORCE_REQUEST,
+			Namespace: ns,
+			Payload:   payload,
+			Metadata:  nil,
 		})
 		if err != nil {
 			return false, err

@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/core"
 	"io/ioutil"
 	"log"
 	"net"
@@ -19,10 +18,9 @@ import (
 	"time"
 
 	"github.com/casbin/casbin-mesh/pkg/cluster"
-
-	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
-
+	"github.com/casbin/casbin-mesh/pkg/core"
 	"github.com/casbin/casbin-mesh/pkg/store"
+	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
 	"github.com/soheilhy/cmux"
 )
 
@@ -31,11 +29,9 @@ const desc = `casbin-mesh is a lightweight, distributed casbin service, which us
 engine.`
 
 var (
-	expvar                 bool
 	raftAddr               string
 	raftAdv                string
 	joinSrcIP              string
-	tls1011                bool
 	x509CACert             string
 	x509Cert               string
 	x509Key                string
@@ -66,10 +62,10 @@ var (
 
 func init() {
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
-	flag.StringVar(&raftAddr, "raft-addr", "localhost:4002", "Raft communication bind address")
-	flag.StringVar(&raftAdv, "raft-adv-addr", "", "Advertised Raft communication address. If not set, same as Raft bind")
+	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address")
+	flag.StringVar(&raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
 	flag.StringVar(&joinSrcIP, "join-source-ip", "", "Set source IP address during Join request")
-	flag.BoolVar(&encrypt, "encrypt", false, "Enable encryption")
+	flag.BoolVar(&encrypt, "tls-encrypt", false, "Enable encryption")
 	flag.StringVar(&x509CACert, "endpoint-ca-cert", "", "Path to root X.509 certificate for API endpoint")
 	flag.StringVar(&x509Cert, "endpoint-cert", "", "Path to X.509 certificate for API endpoint")
 	flag.StringVar(&x509Key, "endpoint-key", "", "Path to X.509 private key for API endpoint")
@@ -77,7 +73,6 @@ func init() {
 	flag.StringVar(&joinAddr, "join", "", "Comma-delimited list of nodes, through which a cluster can be joined (proto://host:port)")
 	flag.IntVar(&joinAttempts, "join-attempts", 5, "Number of join attempts to make")
 	flag.StringVar(&joinInterval, "join-interval", "5s", "Period between join attempts")
-	flag.BoolVar(&expvar, "expvar", true, "Serve expvar data on API server")
 	flag.BoolVar(&pprofEnabled, "pprof", true, "Serve pprof data on API server")
 	flag.BoolVar(&showVersion, "version", false, "Show version information and exit")
 	flag.BoolVar(&raftNonVoter, "raft-non-voter", false, "Configure as non-voting node")
@@ -302,7 +297,7 @@ func main() {
 		log.Printf("failed to close store: %s", err.Error())
 	}
 	stopProfile()
-	log.Println("casbind server stopped")
+	log.Println("casbin-mesh server stopped")
 }
 
 func determineJoinAddresses() ([]string, error) {
@@ -344,7 +339,7 @@ func waitForConsensus(str *store.Store) error {
 func startHTTPService(str *store.Store, ln net.Listener) error {
 	// TODO
 	c := core.New(str)
-	httpd:=core.NewHttpService(c)
+	httpd := core.NewHttpService(c)
 
 	go func() {
 		err := http.Serve(ln, httpd)
