@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+
 	"github.com/casbin/casbin-mesh/pkg/store"
 	"github.com/casbin/casbin-mesh/proto/command"
 )
@@ -40,10 +41,6 @@ func (s core) RemovePolicies(ctx context.Context, ns string, sec string, pType s
 
 func (s core) RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) error {
 	return s.store.RemoveFilteredPolicy(ctx, ns, sec, pType, fi, fv)
-}
-
-func (s core) UpdatePolicy(ctx context.Context, ns string, sec string, pType string, nr, or []string) error {
-	return s.store.UpdatePolicy(ctx, ns, sec, pType, nr, or)
 }
 
 func (s core) UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) error {
@@ -101,7 +98,6 @@ type Core interface {
 	AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error
 	RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error
 	RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) error
-	UpdatePolicy(ctx context.Context, ns string, sec string, pType string, nr, or []string) error
 	UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) error
 	ClearPolicy(ctx context.Context, ns string) error
 	Join(ctx context.Context, id, addr string, voter bool, metadata map[string]string) error
