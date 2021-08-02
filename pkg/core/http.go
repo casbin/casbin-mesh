@@ -3,13 +3,14 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/handler/http"
-	"github.com/go-playground/validator"
-	"golang.org/x/net/context"
 	"io"
 	http2 "net/http"
 	"net/http/httputil"
 	url2 "net/url"
+
+	"github.com/casbin/casbin-mesh/pkg/handler/http"
+	"github.com/go-playground/validator"
+	"golang.org/x/net/context"
 )
 
 type httpService struct {
@@ -46,7 +47,6 @@ func NewHttpService(core Core) *httpService {
 	httpS.Handle("/remove/policies", chain(srv.autoForwardToLeader)(srv.handleRemovePolicies))
 	httpS.Handle("/remove/filtered_policies", chain(srv.autoForwardToLeader)(srv.handleRemoveFilteredPolicy))
 	httpS.Handle("/update/policies", chain(srv.autoForwardToLeader)(srv.handleUpdatePolicies))
-	httpS.Handle("/update/policy", chain(srv.autoForwardToLeader)(srv.handleUpdatePolicy))
 	httpS.Handle("/clear/policy", chain(srv.autoForwardToLeader)(srv.handleClearPolicy))
 
 	// read
@@ -219,26 +219,6 @@ func (s *httpService) handleRemoveFilteredPolicy(ctx *http.Context) (err error) 
 		return
 	}
 	if err = s.RemoveFilteredPolicy(context.TODO(), request.NS, request.Sec, request.PType, request.FieldIndex, request.FieldValues); err != nil {
-		return
-	}
-	ctx.StatusCode(http2.StatusOK)
-	return
-}
-
-type UpdatePolicyRequest struct {
-	NS      string   `json:"ns" validate:"required"`
-	Sec     string   `json:"sec" validate:"required"`
-	PType   string   `json:"ptype" validate:"required"`
-	NewRule []string `json:"newRule" validate:"required"`
-	OldRule []string `json:"oldRule" validate:"required"`
-}
-
-func (s *httpService) handleUpdatePolicy(ctx *http.Context) (err error) {
-	var request UpdatePolicyRequest
-	if err = s.decode(ctx.Request.Body, &request); err != nil {
-		return
-	}
-	if err = s.UpdatePolicy(context.TODO(), request.NS, request.Sec, request.PType, request.NewRule, request.OldRule); err != nil {
 		return
 	}
 	ctx.StatusCode(http2.StatusOK)

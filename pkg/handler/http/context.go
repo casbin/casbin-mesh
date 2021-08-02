@@ -39,9 +39,12 @@ func (c *Context) Next() (err error) {
 	c.indexHandler++
 	for c.indexHandler < int8(len(c.handlers)) {
 		err = c.handlers[c.indexHandler](c)
+		if err != nil {
+			return err
+		}
 		c.indexHandler++
 	}
-	return err
+	return nil
 }
 
 func newContext(ctx context.Context, h ...HandlerFunc) Context {

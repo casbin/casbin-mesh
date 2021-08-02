@@ -4,6 +4,11 @@ package command;
 
 option go_package = "/;command";
 
+service CasbinMesh {
+  rpc Request(Command) returns (Response){}
+  rpc Enforce(EnforceRequest) returns (EnforceResponse){}
+}
+
 message StringArray {
   repeated string s = 1;
 }
@@ -80,6 +85,20 @@ message Command {
   bytes payload = 3;
   // metadata
   map<string,string> metadata =4;
+}
+
+message EnforceRequest {
+  string namespace = 1;
+  EnforcePayload payload = 2;
+}
+
+message EnforceResponse {
+  bool ok = 1;
+  string error = 2;
+}
+
+message Response {
+  string error = 1;
 }
 
 message MetadataSet {

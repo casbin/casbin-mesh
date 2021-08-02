@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"crypto/tls"
@@ -143,6 +143,7 @@ func main() {
 		}
 	}
 	mux := cmux.New(ln)
+	grpcLn := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
 	httpLn := mux.Match(cmux.HTTP1())
 	raftLnBase := mux.Match(cmux.Any())
 	go mux.Serve()
@@ -282,10 +283,14 @@ func main() {
 		// consensus as a result of a join. All other errors indicate a problem.
 		log.Fatalf("failed to set store metadata: %s", err.Error())
 	}
-
+	c := core.New(str)
 	// Start the HTTP API server.
-	if err := startHTTPService(str, httpLn); err != nil {
+	if err = startHTTPService(c, httpLn); err != nil {
 		log.Fatalf("failed to start HTTP server: %s", err.Error())
+	}
+	if err = startGrpcService(c, grpcLn); err != nil {
+		log.Fatalf("failed to start grpc server: %s", err.Error())
+
 	}
 	log.Println("node is ready")
 
@@ -336,15 +341,23 @@ func waitForConsensus(str *store.Store) error {
 	return nil
 }
 
-func startHTTPService(str *store.Store, ln net.Listener) error {
-	// TODO
-	c := core.New(str)
+func startHTTPService(c core.Core, ln net.Listener) error {
 	httpd := core.NewHttpService(c)
-
 	go func() {
 		err := http.Serve(ln, httpd)
 		if err != nil {
-			fmt.Println("HTTP service Serve() returned:", err.Error())
+			log.Println("HTTP service Serve() returned:", err.Error())
+		}
+	}()
+	return nil
+}
+
+func startGrpcService(c core.Core, ln net.Listener) error {
+	grpcd := core.NewGrpcService(c)
+	go func() {
+		err := grpcd.Serve(ln)
+		if err != nil {
+			log.Println("Grpc service Serve() returned:", err.Error())
 		}
 	}()
 	return nil
