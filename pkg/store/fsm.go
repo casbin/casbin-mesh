@@ -92,8 +92,11 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
-			//TODO: rebuild ROLE links
 			enforcer.SetModel(model)
+			err = enforcer.BuildRoleLinks()
+			if err != nil {
+				return &FSMResponse{error: err}
+			}
 			log.Println("set model successfully")
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
