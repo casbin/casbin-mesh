@@ -4,6 +4,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"github.com/boltdb/bolt"
 	"log"
 	"os"
 	"path/filepath"
@@ -123,6 +124,7 @@ type Store struct {
 	metaMu    sync.RWMutex
 	meta      map[string]map[string]string
 	enforcers sync.Map
+	enforcersState *bolt.DB
 	logger    *log.Logger
 
 	ShutdownOnRemove   bool

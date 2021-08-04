@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"io"
 	"log"
 	"sync"
@@ -88,11 +89,18 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 		}
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
+			a,err:=adapter.NewAdapter(s.enforcersState,cmd.Namespace,"")
+			if err != nil {
+				return &FSMResponse{error: err}
+			}
 			model, err := model2.NewModelFromString(p.Text)
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
-			enforcer.SetModel(model)
+			err=enforcer.InitWithModelAndAdapter(model,a)
+			if err != nil {
+				return &FSMResponse{error: err}
+			}
 			err = enforcer.BuildRoleLinks()
 			if err != nil {
 				return &FSMResponse{error: err}
