@@ -4,7 +4,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/boltdb/bolt"
+	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"log"
 	"os"
 	"path/filepath"
@@ -40,6 +40,7 @@ var (
 )
 
 const (
+	stateDBPath         = "default-state.db"
 	raftDBPath          = "default-raft.db" // Changing this will break backwards compatibility.
 	retainSnapshotCount = 2
 	applyTimeout        = 10 * time.Second
@@ -121,11 +122,11 @@ type Store struct {
 	txMu    sync.RWMutex // Sync between snapshots and query-level transactions.
 	queryMu sync.RWMutex // Sync queries generally with other operations.
 
-	metaMu    sync.RWMutex
-	meta      map[string]map[string]string
-	enforcers sync.Map
-	enforcersState *bolt.DB
-	logger    *log.Logger
+	metaMu         sync.RWMutex
+	meta           map[string]map[string]string
+	enforcers      sync.Map
+	enforcersState *adapter.BoltStore
+	logger         *log.Logger
 
 	ShutdownOnRemove   bool
 	SnapshotThreshold  uint64
@@ -198,7 +199,11 @@ func (s *Store) Open(enableBootstrap bool) error {
 	}
 	s.logger.Printf("%d pre-existing snapshots present", len(snaps))
 	s.snapsExistOnOpen = len(snaps) > 0
-
+	// TODO !important. stale read? restart after the node crashed
+	s.enforcersState, err = adapter.NewBoltStore(filepath.Join(s.raftDir, stateDBPath))
+	if err != nil {
+		return fmt.Errorf("new state store: %s", err)
+	}
 	// Create the log store and stable store.
 	s.boltStore, err = rlog.NewLog(filepath.Join(s.raftDir, raftDBPath))
 	if err != nil {

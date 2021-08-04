@@ -32,13 +32,13 @@ type adapter struct {
 }
 
 // NewAdapter creates a new adapter.
-func NewAdapter(db *bolt.DB, bucket string, builtinPolicy string) (*adapter, error) {
+func NewAdapter(store *BoltStore, bucket string, builtinPolicy string) (*adapter, error) {
 	if bucket == "" {
 		return nil, errors.New("must provide a namespace")
 	}
 
 	adapter := &adapter{
-		db:            db,
+		db:            store.conn,
 		namespace:     []byte(bucket),
 		builtinPolicy: builtinPolicy,
 	}
@@ -200,7 +200,7 @@ func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int,
 	})
 }
 
-func (rule CasbinRule) filter() string{
+func (rule CasbinRule) filter() string {
 	filter := rule.PType
 	if rule.V0 != "" {
 		filter = fmt.Sprintf("%s::%s", filter, rule.V0)
