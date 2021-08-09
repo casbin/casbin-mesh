@@ -5,8 +5,46 @@ package command;
 option go_package = "/;command";
 
 service CasbinMesh {
+  rpc ShowStats(StatsRequest)returns(StatsResponse){}
+  rpc ListNamespaces(ListNamespacesRequest) returns (ListNamespacesResponse){}
+  rpc PrintModel(PrintModelRequest) returns (PrintModelResponse){}
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse){}
   rpc Request(Command) returns (Response){}
   rpc Enforce(EnforceRequest) returns (EnforceResponse){}
+}
+message StatsRequest{
+
+}
+message StatsResponse{
+  bytes payload =1;
+}
+message PrintModelRequest{
+  map<string,string> metadata =1;
+  string namespace = 2;
+}
+
+message PrintModelResponse{
+  string error = 1;
+  string model = 2;
+}
+
+message ListPoliciesRequest{
+  map<string,string> metadata =1;
+  string namespace = 2;
+}
+
+message ListPoliciesResponse{
+  map<string,string> metadata =1;
+  repeated StringArray policies = 2;
+}
+
+message ListNamespacesRequest{
+  map<string,string> metadata =1;
+}
+
+message ListNamespacesResponse{
+  string error = 1;
+  repeated string namespace = 2;
 }
 
 message StringArray {
@@ -75,6 +113,9 @@ enum Type {
   COMMAND_TYPE_CLEAR_POLICY = 8;
   COMMAND_TYPE_SET_MODEL=9;
   COMMAND_TYPE_CREATE_NAMESPACE=10;
+  COMMAND_TYPE_LIST_NAMESPACES=11;
+  COMMAND_TYPE_PRINT_MODEL=12;
+  COMMAND_TYPE_LIST_POLICIES=13;
 }
 
 message Command {
@@ -99,6 +140,8 @@ message EnforceResponse {
 
 message Response {
   string error = 1;
+  repeated StringArray effectedRules=2;
+  bool effected=3;
 }
 
 message MetadataSet {

@@ -106,7 +106,7 @@ func Test_SingleNodeAddPolices(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = s.SetModelFromString(context.TODO(), "default", modelText)
 	assert.Equal(t, nil, err)
-	err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+	_, err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
 		{"alice", "data1", "read"},
 	})
 	assert.Equal(t, nil, err)
@@ -124,14 +124,14 @@ func Test_SingleNodeEnforce(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = s.SetModelFromString(context.TODO(), "default", modelText)
 	assert.Equal(t, nil, err)
-	err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+	_, err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 	})
 	assert.Equal(t, nil, err)
-	err = s.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
+	_, err = s.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
 		{"alice", "data2_admin"},
 	})
 	assert.Equal(t, nil, err)
@@ -321,14 +321,14 @@ func Test_MultiNodeEnforce(t *testing.T) {
 	if err := s1.WaitForAppliedIndex(4, 5*time.Second); err != nil {
 		t.Fatalf("error waiting for follower to apply index: %s:", err.Error())
 	}
-	err = s0.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+	_, err = s0.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 	})
 	assert.Equal(t, nil, err)
-	err = s0.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
+	_, err = s0.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
 		{"alice", "data2_admin"},
 	})
 	assert.Equal(t, nil, err)
@@ -392,14 +392,14 @@ func Test_MultiNodeExecuteEnforceFreshness(t *testing.T) {
 	err = s0.SetModelFromString(context.TODO(), "default", modelText)
 	assert.Equal(t, nil, err)
 
-	err = s0.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+	_, err = s0.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 	})
 	assert.Equal(t, nil, err)
-	err = s0.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
+	_, err = s0.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
 		{"alice", "data2_admin"},
 	})
 	assert.Equal(t, nil, err)
@@ -487,14 +487,14 @@ func Test_SingleNodeSnapshotOnDisk(t *testing.T) {
 	assert.Equal(t, nil, err)
 	err = s.SetModelFromString(context.TODO(), "default", modelText)
 	assert.Equal(t, nil, err)
-	err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
+	_, err = s.AddPolicies(context.TODO(), "default", "p", "p", [][]string{
 		{"alice", "data1", "read"},
 		{"bob", "data2", "write"},
 		{"data2_admin", "data2", "read"},
 		{"data2_admin", "data2", "write"},
 	})
 	assert.Equal(t, nil, err)
-	err = s.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
+	_, err = s.AddPolicies(context.TODO(), "default", "g", "g", [][]string{
 		{"alice", "data2_admin"},
 	})
 	assert.Equal(t, nil, err)

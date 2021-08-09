@@ -85,6 +85,7 @@ func (a *adapter) LoadPolicy(model model.Model) error {
 
 // SavePolicy is not supported for this adapter. Auto-save should be used.
 func (a *adapter) SavePolicy(model model.Model) error {
+	//TODO
 	return errors.New("not supported: must use auto-save with this adapter")
 }
 
@@ -107,8 +108,9 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 // AddPolicies inserts or updates multiple rules by iterating over each one and inserting it into the namespace.
 func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error {
 	return a.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(a.namespace)
+
 		for _, r := range rules {
-			bucket := tx.Bucket(a.namespace)
 
 			line := convertRule(ptype, r)
 
@@ -232,12 +234,71 @@ func (a *adapter) RemovePolicy(sec string, ptype string, line []string) error {
 	})
 }
 
+// UpdateFilteredPolicies deletes old rules and adds new rules.
+func (a *adapter) UpdateFilteredPolicies(sec string, ptype string, newPolicies [][]string, fieldIndex int, fieldValues ...string) ([][]string, error) {
+	panic("implement")
+}
+
+// UpdatePolicy updates a policy rule from storage.
+// This is part of the Auto-Save feature.
+func (a *adapter) UpdatePolicy(sec string, ptype string, oldRule, newPolicy []string) error {
+	return a.db.Update(func(tx *bolt.Tx) error {
+		rule := convertRule(ptype, oldRule)
+		bucket := tx.Bucket(a.namespace)
+		if bucket.Get([]byte(rule.Key)) != nil {
+			if err := bucket.Delete([]byte(rule.Key)); err != nil {
+				return err
+			}
+			line := convertRule(ptype, newPolicy)
+			bts, err := json.Marshal(line)
+			if err != nil {
+				return err
+			}
+			if err := bucket.Put([]byte(line.Key), bts); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+var (
+	InvalidRulesLen = errors.New("invalid rule len")
+)
+
+// UpdatePolicies updates some policy rules to storage, like db, redis.
+func (a *adapter) UpdatePolicies(sec string, ptype string, oldRules, newRules [][]string) error {
+	return a.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(a.namespace)
+		if len(oldRules) != len(newRules) {
+			return InvalidRulesLen
+		}
+		for i := 0; i < len(oldRules); i++ {
+			or := convertRule(ptype, oldRules[i])
+			if bucket.Get([]byte(or.Key)) != nil {
+				if err := bucket.Delete([]byte(or.Key)); err != nil {
+					return err
+				}
+				line := convertRule(ptype, newRules[i])
+				bts, err := json.Marshal(line)
+				if err != nil {
+					return err
+				}
+				if err := bucket.Put([]byte(line.Key), bts); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
 // RemovePolicies removes multiple policies.
 func (a *adapter) RemovePolicies(sec string, ptype string, rules [][]string) error {
 	return a.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(a.namespace)
 		for _, r := range rules {
 			rule := convertRule(ptype, r)
-			bucket := tx.Bucket(a.namespace)
 			if err := bucket.Delete([]byte(rule.Key)); err != nil {
 				return err
 			}

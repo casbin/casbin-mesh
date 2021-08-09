@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/casbin/casbin-mesh/proto/command"
@@ -67,32 +68,44 @@ func (s grpcServer) Request(ctx context.Context, cmd *command.Command) (*command
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
 			return FormatResponse(UnmarshalFailed), nil
 		}
-		err = s.Core.AddPolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetRules()))
-		return FormatResponse(err), nil
+		rules, err := s.Core.AddPolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetRules()))
+		if err != nil {
+			return FormatResponse(err), nil
+		}
+		return &command.Response{EffectedRules: command.NewStringArray(rules)}, nil
 
 	case command.Type_COMMAND_TYPE_UPDATE_POLICIES:
 		var p command.UpdatePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
 			return FormatResponse(UnmarshalFailed), nil
 		}
-		err = s.Core.UpdatePolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetNewRules()), command.ToStringArray(p.GetOldRules()))
-		return FormatResponse(err), nil
+		effected, err := s.Core.UpdatePolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetNewRules()), command.ToStringArray(p.GetOldRules()))
+		if err != nil {
+			return FormatResponse(err), nil
+		}
+		return &command.Response{Effected: effected}, nil
 
 	case command.Type_COMMAND_TYPE_REMOVE_POLICIES:
 		var p command.RemovePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
 			return FormatResponse(UnmarshalFailed), nil
 		}
-		err = s.Core.RemovePolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetRules()))
-		return FormatResponse(err), nil
+		rules, err := s.Core.RemovePolicies(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), command.ToStringArray(p.GetRules()))
+		if err != nil {
+			return FormatResponse(err), nil
+		}
+		return &command.Response{EffectedRules: command.NewStringArray(rules)}, nil
 
 	case command.Type_COMMAND_TYPE_REMOVE_FILTERED_POLICY:
 		var p command.RemoveFilteredPolicyPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
 			return FormatResponse(UnmarshalFailed), nil
 		}
-		err = s.Core.RemoveFilteredPolicy(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), p.GetFieldIndex(), p.GetFieldValues())
-		return FormatResponse(err), nil
+		rules, err := s.Core.RemoveFilteredPolicy(ctx, cmd.GetNamespace(), p.GetSec(), p.GetPType(), p.GetFieldIndex(), p.GetFieldValues())
+		if err != nil {
+			return FormatResponse(err), nil
+		}
+		return &command.Response{EffectedRules: command.NewStringArray(rules)}, nil
 
 	case command.Type_COMMAND_TYPE_CLEAR_POLICY:
 		err = s.Core.Remove(ctx, cmd.GetNamespace())
@@ -101,9 +114,48 @@ func (s grpcServer) Request(ctx context.Context, cmd *command.Command) (*command
 	return nil, nil
 }
 
+func (s grpcServer) ListNamespaces(ctx context.Context, req *command.ListNamespacesRequest) (*command.ListNamespacesResponse, error) {
+	ns, err := s.Core.ListNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &command.ListNamespacesResponse{Namespace: ns}, nil
+}
+
+func (s grpcServer) PrintModel(ctx context.Context, req *command.PrintModelRequest) (*command.PrintModelResponse, error) {
+	model, err := s.Core.PrintModel(ctx, req.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	return &command.PrintModelResponse{Model: model}, nil
+}
+
+func (s grpcServer) ListPolicies(ctx context.Context, req *command.ListPoliciesRequest) (*command.ListPoliciesResponse, error) {
+	policies, err := s.Core.ListPolicies(ctx, req.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	return &command.ListPoliciesResponse{Policies: command.NewStringArray(policies)}, nil
+
+}
+
+func (s grpcServer) ShowStats(ctx context.Context, req *command.StatsRequest) (*command.StatsResponse, error) {
+
+	stats, err := s.Stats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	buf, err := json.Marshal(stats)
+	if err != nil {
+		return nil, err
+	}
+	return &command.StatsResponse{Payload: buf}, nil
+}
+
 func newServer(core Core) command.CasbinMeshServer {
 	return &grpcServer{core, command.UnimplementedCasbinMeshServer{}}
 }
+
 func NewGrpcService(core Core) *grpc.Server {
 	srv := grpc.NewServer()
 	command.RegisterCasbinMeshServer(srv, newServer(core))

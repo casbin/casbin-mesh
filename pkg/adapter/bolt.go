@@ -71,6 +71,10 @@ func (b BoltStore) Foreach(fn func(name []byte, b *bolt.Bucket) error) error {
 	})
 }
 
+func (b BoltStore) View(fn func(tx *bolt.Tx) error) error {
+	return b.conn.View(fn)
+}
+
 type IBoltStore interface {
 	Foreach(fn func(name []byte, b *bolt.Bucket) error) error
 	Restore(reader io.Reader) error

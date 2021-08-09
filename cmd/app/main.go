@@ -143,7 +143,7 @@ func main() {
 		}
 	}
 	mux := cmux.New(ln)
-	grpcLn := mux.Match(cmux.HTTP2HeaderField("content-type", "application/grpc"))
+	grpcLn := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 	httpLn := mux.Match(cmux.HTTP1())
 	raftLnBase := mux.Match(cmux.Any())
 	go mux.Serve()
@@ -272,6 +272,7 @@ func main() {
 
 	}
 
+	// TODO
 	// Wait until the store is in full consensus.
 	if err := waitForConsensus(str); err != nil {
 		log.Fatalf(err.Error())
@@ -290,8 +291,8 @@ func main() {
 	}
 	if err = startGrpcService(c, grpcLn); err != nil {
 		log.Fatalf("failed to start grpc server: %s", err.Error())
-
 	}
+
 	log.Println("node is ready")
 
 	// Block until signalled.

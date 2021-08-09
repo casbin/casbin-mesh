@@ -30,7 +30,7 @@ func (c *Context) StatusCode(code int) *Context {
 	return c
 }
 
-func (c *Context) Write(resp interface{}) error {
+func (c *Context) JSON(resp interface{}) error {
 	return json.NewEncoder(c.ResponseWriter).Encode(resp)
 }
 

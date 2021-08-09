@@ -11,6 +11,18 @@ type core struct {
 	store *store.Store
 }
 
+func (s core) ListNamespaces(ctx context.Context) ([]string, error) {
+	return s.store.ListNamespace(ctx)
+}
+
+func (s core) ListPolicies(ctx context.Context, namespace string) ([][]string, error) {
+	return s.store.ListPolicies(ctx, namespace)
+}
+
+func (s core) PrintModel(ctx context.Context, namespace string) (string, error) {
+	return s.store.PrintModel(ctx, namespace)
+}
+
 func (s core) Join(ctx context.Context, id, addr string, voter bool, metadata map[string]string) error {
 	return s.store.Join(id, addr, voter, metadata)
 }
@@ -31,19 +43,19 @@ func (s core) Enforce(ctx context.Context, ns string, level int32, freshness int
 	return s.store.Enforce(ctx, ns, command.EnforcePayload_Level(level), freshness, params...)
 }
 
-func (s core) AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error {
+func (s core) AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error) {
 	return s.store.AddPolicies(ctx, ns, sec, pType, rules)
 }
 
-func (s core) RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error {
+func (s core) RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error) {
 	return s.store.RemovePolicies(ctx, ns, sec, pType, rules)
 }
 
-func (s core) RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) error {
+func (s core) RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) ([][]string, error) {
 	return s.store.RemoveFilteredPolicy(ctx, ns, sec, pType, fi, fv)
 }
 
-func (s core) UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) error {
+func (s core) UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) (bool, error) {
 	return s.store.UpdatePolicies(ctx, ns, sec, pType, nr, or)
 }
 
@@ -89,16 +101,19 @@ func (s core) LeaderAPIProto() string {
 type Core interface {
 	LeaderAPIProto() string
 	LeaderAPIAddr() string
+	ListNamespaces(ctx context.Context) ([]string, error)
+	ListPolicies(ctx context.Context, namespace string) ([][]string, error)
+	PrintModel(ctx context.Context, namespace string) (string, error)
 	IsLeader(ctx context.Context) bool
 	LeaderAddr(ctx context.Context) string
 	Stats(ctx context.Context) (map[string]interface{}, error)
 	CreateNamespace(ctx context.Context, ns string) error
 	SetModelFromString(ctx context.Context, ns string, text string) error
 	Enforce(ctx context.Context, ns string, level int32, freshness int64, params ...interface{}) (bool, error)
-	AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error
-	RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error
-	RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) error
-	UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) error
+	AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error)
+	RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error)
+	RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) ([][]string, error)
+	UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) (bool, error)
 	ClearPolicy(ctx context.Context, ns string) error
 	Join(ctx context.Context, id, addr string, voter bool, metadata map[string]string) error
 	Remove(ctx context.Context, id string) error
