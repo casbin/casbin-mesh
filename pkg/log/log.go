@@ -2,19 +2,18 @@ package log
 
 import (
 	"fmt"
-
+	raftbadgerdb "github.com/BBVA/raft-badger"
 	"github.com/hashicorp/raft"
-	raftboltdb "github.com/hashicorp/raft-boltdb"
 )
 
 // Log is an object that can return information about the Raft log.
 type Log struct {
-	*raftboltdb.BoltStore
+	*raftbadgerdb.BadgerStore
 }
 
 // NewLog returns an instantiated Log object.
 func NewLog(path string) (*Log, error) {
-	bs, err := raftboltdb.NewBoltStore(path)
+	bs, err := raftbadgerdb.NewBadgerStore(path)
 	if err != nil {
 		return nil, fmt.Errorf("new bolt store: %s", err)
 	}
