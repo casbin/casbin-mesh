@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -143,9 +145,12 @@ func main() {
 		}
 	}
 	mux := cmux.New(ln)
+	// MATCH 1st bytes in { 0 1 2 3 }
+	raftLnBase := mux.Match(RaftRPCMatcher())
+	// MATCH ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
 	grpcLn := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
-	httpLn := mux.Match(cmux.HTTP1())
-	raftLnBase := mux.Match(cmux.Any())
+	// MATCH {METHOD} {URL} HTTP/1.1
+	httpLn := mux.Match(cmux.HTTP1Fast())
 	go mux.Serve()
 	var raftLn *tcp.Transport
 	if encrypt {
@@ -271,13 +276,11 @@ func main() {
 		}
 
 	}
-
 	// TODO
 	// Wait until the store is in full consensus.
 	if err := waitForConsensus(str); err != nil {
 		log.Fatalf(err.Error())
 	}
-
 	// This may be a standalone server. In that case set its own metadata.
 	if err := str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
 		// Non-leader errors are OK, since metadata will then be set through
@@ -285,7 +288,7 @@ func main() {
 		log.Fatalf("failed to set store metadata: %s", err.Error())
 	}
 	c := core.New(str)
-	// Start the HTTP API server.
+	//Start the HTTP API server.
 	if err = startHTTPService(c, httpLn); err != nil {
 		log.Fatalf("failed to start HTTP server: %s", err.Error())
 	}
@@ -304,6 +307,22 @@ func main() {
 	}
 	stopProfile()
 	log.Println("casbin-mesh server stopped")
+}
+
+func RaftRPCMatcher() cmux.Matcher {
+	return func(r io.Reader) bool {
+		br := bufio.NewReader(&io.LimitedReader{R: r, N: 1})
+		byt, err := br.ReadByte()
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+		switch byt {
+		case 0, 1, 2, 3:
+			return true
+		}
+		return false
+	}
 }
 
 func determineJoinAddresses() ([]string, error) {

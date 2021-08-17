@@ -83,6 +83,9 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 		var policies [][]string
 		err := s.enforcersState.View(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.New("bucket is empty")
+			}
 			return bucket.ForEach(func(k, v []byte) error {
 				policies = append(policies, []string{string(k), string(v)})
 				return nil
@@ -144,17 +147,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
-			// load existed policies
-			err = a.LoadPolicy(model)
-			if err != nil {
-				return &FSMResponse{error: err}
-			}
 			err = enforcer.InitWithModelAndAdapter(model, a)
-			if err != nil {
-				return &FSMResponse{error: err}
-			}
-			// rebuild role links
-			err = enforcer.BuildRoleLinks()
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
@@ -395,19 +388,9 @@ func (s *Store) Restore(closer io.ReadCloser) error {
 				s.logger.Println("failed to create model", err)
 				return err
 			}
-			err = a.LoadPolicy(model)
-			if err != nil {
-				s.logger.Println("failed to load policy", err)
-				return err
-			}
 			err = enforcer.InitWithModelAndAdapter(model, a)
 			if err != nil {
 				s.logger.Println("failed to init enforcer", err)
-				return err
-			}
-			err = enforcer.BuildRoleLinks()
-			if err != nil {
-				s.logger.Println("failed to rebuild role links", err)
 				return err
 			}
 			s.enforcers.Store(string(name), enforcer)

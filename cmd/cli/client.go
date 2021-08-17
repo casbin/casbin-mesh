@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
@@ -113,6 +114,9 @@ func (c client) ListNamespaces(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if resp.Error != "" {
+		return nil, errors.New(resp.Error)
+	}
 	return resp.Namespace, nil
 }
 
@@ -124,10 +128,42 @@ func (c client) ListPolicies(ctx context.Context, namespace string) ([][]string,
 	return command.ToStringArray(resp.Policies), nil
 }
 
+func (c client) Enforce(ctx context.Context, namespace string, level command.EnforcePayload_Level, freshness int64, params ...interface{}) (bool, error) {
+	var B [][]byte
+	for _, p := range params {
+		b, err := json.Marshal(p)
+		if err != nil {
+			return false, err
+		}
+		B = append(B, b)
+	}
+
+	payload := &command.EnforcePayload{
+		B:         B,
+		Level:     level,
+		Freshness: freshness,
+	}
+	cmd := &command.EnforceRequest{
+		Namespace: namespace,
+		Payload:   payload,
+	}
+	result, err := c.grpcClient.Enforce(ctx, cmd)
+	if err != nil {
+		return false, err
+	}
+	if result.Error != "" {
+		return false, errors.New(result.Error)
+	}
+	return result.Ok, nil
+}
+
 func (c client) PrintModel(ctx context.Context, namespace string) (string, error) {
 	resp, err := c.grpcClient.PrintModel(ctx, &command.PrintModelRequest{Namespace: namespace})
 	if err != nil {
 		return "", err
+	}
+	if resp.Error != "" {
+		return "", errors.New(resp.Error)
 	}
 	return resp.Model, nil
 }

@@ -324,10 +324,26 @@ func (c *ctx) Executor(line string) {
 			}
 		}
 	case "SHOW":
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+		start := time.Now()
+>>>>>>> Stashed changes
+=======
+		start := time.Now()
+>>>>>>> Stashed changes
 		if len(argv) > 0 {
 			switch strings.ToUpper(argv[0]) {
 			case "POLICIES":
 				ns, err := c.ListPolicies(context.TODO(), c.namespace)
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+				elapsed := time.Since(start)
+>>>>>>> Stashed changes
+=======
+				elapsed := time.Since(start)
+>>>>>>> Stashed changes
 				if err != nil {
 					log.Printf("Error:%s\n", err.Error())
 				}
@@ -343,9 +359,23 @@ func (c *ctx) Executor(line string) {
 					t.AppendRow(table.Row{s[0], rule.PType, rule.V0, rule.V1, rule.V2, rule.V3, rule.V4, rule.V5})
 				}
 				t.Render()
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 			case "NAMESPACES":
 				c.namespaces = nil
 				ns, err := c.ListNamespaces(context.TODO())
+=======
+=======
+>>>>>>> Stashed changes
+				fmt.Printf("<%s>\n", elapsed)
+			case "NAMESPACES":
+				c.namespaces = nil
+				ns, err := c.ListNamespaces(context.TODO())
+				elapsed := time.Since(start)
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 				if err != nil {
 					log.Printf("Error:%s\n", err.Error())
 				}
@@ -357,6 +387,14 @@ func (c *ctx) Executor(line string) {
 					t.AppendRow(table.Row{s})
 				}
 				t.Render()
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+				fmt.Printf("<%s>\n", elapsed)
+>>>>>>> Stashed changes
+=======
+				fmt.Printf("<%s>\n", elapsed)
+>>>>>>> Stashed changes
 			}
 		}
 	case "QUIT", "EXIT":
