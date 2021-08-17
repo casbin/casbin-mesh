@@ -18,6 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CasbinMeshClient interface {
+	ShowStats(ctx context.Context, in *StatsRequest, opts ...grpc.CallOption) (*StatsResponse, error)
+	ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error)
+	PrintModel(ctx context.Context, in *PrintModelRequest, opts ...grpc.CallOption) (*PrintModelResponse, error)
+	ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error)
 	Request(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Response, error)
 	Enforce(ctx context.Context, in *EnforceRequest, opts ...grpc.CallOption) (*EnforceResponse, error)
 }
@@ -28,6 +32,42 @@ type casbinMeshClient struct {
 
 func NewCasbinMeshClient(cc grpc.ClientConnInterface) CasbinMeshClient {
 	return &casbinMeshClient{cc}
+}
+
+func (c *casbinMeshClient) ShowStats(ctx context.Context, in *StatsRequest, opts ...grpc.CallOption) (*StatsResponse, error) {
+	out := new(StatsResponse)
+	err := c.cc.Invoke(ctx, "/command.CasbinMesh/ShowStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *casbinMeshClient) ListNamespaces(ctx context.Context, in *ListNamespacesRequest, opts ...grpc.CallOption) (*ListNamespacesResponse, error) {
+	out := new(ListNamespacesResponse)
+	err := c.cc.Invoke(ctx, "/command.CasbinMesh/ListNamespaces", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *casbinMeshClient) PrintModel(ctx context.Context, in *PrintModelRequest, opts ...grpc.CallOption) (*PrintModelResponse, error) {
+	out := new(PrintModelResponse)
+	err := c.cc.Invoke(ctx, "/command.CasbinMesh/PrintModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *casbinMeshClient) ListPolicies(ctx context.Context, in *ListPoliciesRequest, opts ...grpc.CallOption) (*ListPoliciesResponse, error) {
+	out := new(ListPoliciesResponse)
+	err := c.cc.Invoke(ctx, "/command.CasbinMesh/ListPolicies", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *casbinMeshClient) Request(ctx context.Context, in *Command, opts ...grpc.CallOption) (*Response, error) {
@@ -52,6 +92,10 @@ func (c *casbinMeshClient) Enforce(ctx context.Context, in *EnforceRequest, opts
 // All implementations must embed UnimplementedCasbinMeshServer
 // for forward compatibility
 type CasbinMeshServer interface {
+	ShowStats(context.Context, *StatsRequest) (*StatsResponse, error)
+	ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error)
+	PrintModel(context.Context, *PrintModelRequest) (*PrintModelResponse, error)
+	ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error)
 	Request(context.Context, *Command) (*Response, error)
 	Enforce(context.Context, *EnforceRequest) (*EnforceResponse, error)
 	mustEmbedUnimplementedCasbinMeshServer()
@@ -61,6 +105,18 @@ type CasbinMeshServer interface {
 type UnimplementedCasbinMeshServer struct {
 }
 
+func (UnimplementedCasbinMeshServer) ShowStats(context.Context, *StatsRequest) (*StatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ShowStats not implemented")
+}
+func (UnimplementedCasbinMeshServer) ListNamespaces(context.Context, *ListNamespacesRequest) (*ListNamespacesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNamespaces not implemented")
+}
+func (UnimplementedCasbinMeshServer) PrintModel(context.Context, *PrintModelRequest) (*PrintModelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PrintModel not implemented")
+}
+func (UnimplementedCasbinMeshServer) ListPolicies(context.Context, *ListPoliciesRequest) (*ListPoliciesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPolicies not implemented")
+}
 func (UnimplementedCasbinMeshServer) Request(context.Context, *Command) (*Response, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Request not implemented")
 }
@@ -78,6 +134,78 @@ type UnsafeCasbinMeshServer interface {
 
 func RegisterCasbinMeshServer(s grpc.ServiceRegistrar, srv CasbinMeshServer) {
 	s.RegisterService(&CasbinMesh_ServiceDesc, srv)
+}
+
+func _CasbinMesh_ShowStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CasbinMeshServer).ShowStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/command.CasbinMesh/ShowStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CasbinMeshServer).ShowStats(ctx, req.(*StatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CasbinMesh_ListNamespaces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNamespacesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CasbinMeshServer).ListNamespaces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/command.CasbinMesh/ListNamespaces",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CasbinMeshServer).ListNamespaces(ctx, req.(*ListNamespacesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CasbinMesh_PrintModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrintModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CasbinMeshServer).PrintModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/command.CasbinMesh/PrintModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CasbinMeshServer).PrintModel(ctx, req.(*PrintModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CasbinMesh_ListPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CasbinMeshServer).ListPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/command.CasbinMesh/ListPolicies",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CasbinMeshServer).ListPolicies(ctx, req.(*ListPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _CasbinMesh_Request_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -123,6 +251,22 @@ var CasbinMesh_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "command.CasbinMesh",
 	HandlerType: (*CasbinMeshServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ShowStats",
+			Handler:    _CasbinMesh_ShowStats_Handler,
+		},
+		{
+			MethodName: "ListNamespaces",
+			Handler:    _CasbinMesh_ListNamespaces_Handler,
+		},
+		{
+			MethodName: "PrintModel",
+			Handler:    _CasbinMesh_PrintModel_Handler,
+		},
+		{
+			MethodName: "ListPolicies",
+			Handler:    _CasbinMesh_ListPolicies_Handler,
+		},
 		{
 			MethodName: "Request",
 			Handler:    _CasbinMesh_Request_Handler,

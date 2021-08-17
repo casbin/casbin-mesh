@@ -1,9 +1,12 @@
 package store
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/boltdb/bolt"
+	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"io"
 	"log"
 	"sync"
@@ -21,7 +24,9 @@ import (
 )
 
 type FSMResponse struct {
-	error error
+	error         error
+	effected      bool
+	effectedRules [][]string
 }
 
 type FSMEnforceResponse struct {
@@ -31,21 +36,67 @@ type FSMEnforceResponse struct {
 
 var (
 	NamespaceExisted = errors.New("namespace already existed")
-
+	ModelUnsetYet    = errors.New("model unset yet")
 	// NamespaceNotExist namespace not exist
 	NamespaceNotExist = errors.New("namespace not exist")
 	// UnmarshalFailed unmarshal failed
 	UnmarshalFailed = errors.New("unmarshal failed")
+	// Transaction failed
+	StateTransactionFailed = errors.New("state transaction failed")
 )
+
+var persist = func() bool { return true }
 
 func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	var cmd command.Command
 	err := proto.Unmarshal(l.Data, &cmd)
 	if err != nil {
-		return &FSMEnforceResponse{error: UnmarshalFailed}
+		return &FSMResponse{error: UnmarshalFailed}
 	}
-
 	switch cmd.Type {
+	case command.Type_COMMAND_TYPE_LIST_NAMESPACES:
+		var ns []string
+		err := s.enforcersState.View(func(tx *bolt.Tx) error {
+			return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+				ns = append(ns, string(name))
+				return nil
+			})
+		})
+		if err != nil {
+			return &ListNamespacesResponse{error: StateTransactionFailed}
+		}
+		return &ListNamespacesResponse{
+			namespace: ns,
+		}
+	case command.Type_COMMAND_TYPE_PRINT_MODEL:
+		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
+			enforcer := e.(*casbin.DistributedEnforcer)
+			model := enforcer.GetModel()
+			if model == nil {
+				return &FSMEnforceResponse{error: err}
+			}
+			return &PrintModelResponse{model: model.ToText()}
+		}
+		return &PrintModelResponse{error: NamespaceNotExist}
+	case command.Type_COMMAND_TYPE_LIST_POLICIES:
+		ns := cmd.Namespace
+		var policies [][]string
+		err := s.enforcersState.View(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(ns))
+			if bucket == nil {
+				return errors.New("bucket is empty")
+			}
+			return bucket.ForEach(func(k, v []byte) error {
+				policies = append(policies, []string{string(k), string(v)})
+				return nil
+			})
+		})
+		if err != nil {
+			return &ListPoliciesResponse{error: StateTransactionFailed}
+		}
+		return &ListPoliciesResponse{
+			policies: policies,
+		}
 	case command.Type_COMMAND_TYPE_ENFORCE_REQUEST:
 		var p command.EnforcePayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
@@ -68,11 +119,11 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 			}
 			return &FSMEnforceResponse{ok: r, error: err}
 		}
-		return &FSMResponse{error: NamespaceNotExist}
+		return &FSMEnforceResponse{error: NamespaceNotExist}
 	case command.Type_COMMAND_TYPE_CREATE_NAMESPACE:
 		_, ok := s.enforcers.Load(cmd.Namespace)
 		if ok {
-			return &FSMResponse{NamespaceExisted}
+			return &FSMResponse{error: NamespaceExisted}
 		}
 		e, err := casbin.NewDistributedEnforcer()
 		if err != nil {
@@ -84,16 +135,19 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_SET_MODEL:
 		var p command.SetModelFromString
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
+			a, err := adapter.NewAdapter(s.enforcersState, cmd.Namespace, "")
+			if err != nil {
+				return &FSMResponse{error: err}
+			}
 			model, err := model2.NewModelFromString(p.Text)
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
-			enforcer.SetModel(model)
-			err = enforcer.BuildRoleLinks()
+			err = enforcer.InitWithModelAndAdapter(model, a)
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
@@ -107,65 +161,72 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
+		var effectedRules [][]string
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
-			_, err := enforcer.AddPoliciesSelf(nil, p.Sec, p.PType, command.ToStringArray(p.Rules))
+			if enforcer.GetModel() == nil {
+				return &FSMResponse{error: ModelUnsetYet}
+			}
+			effectedRules, err = enforcer.AddPoliciesSelf(persist, p.Sec, p.PType, command.ToStringArray(p.Rules))
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
-		return &FSMResponse{}
+		return &FSMResponse{effectedRules: effectedRules}
 	case command.Type_COMMAND_TYPE_UPDATE_POLICIES:
 		var p command.UpdatePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
+		var effected bool
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
-			_, err := enforcer.UpdatePoliciesSelf(nil, p.Sec, p.PType, command.ToStringArray(p.OldRules), command.ToStringArray(p.NewRules))
+			effected, err = enforcer.UpdatePoliciesSelf(persist, p.Sec, p.PType, command.ToStringArray(p.OldRules), command.ToStringArray(p.NewRules))
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
-		return &FSMResponse{}
+		return &FSMResponse{effected: effected}
 	case command.Type_COMMAND_TYPE_REMOVE_POLICIES:
 		var p command.RemovePoliciesPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
+		var effectedRules [][]string
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
-			_, err := enforcer.RemovePoliciesSelf(nil, p.Sec, p.PType, command.ToStringArray(p.Rules))
+			effectedRules, err = enforcer.RemovePoliciesSelf(persist, p.Sec, p.PType, command.ToStringArray(p.Rules))
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
-		return &FSMResponse{}
+		return &FSMResponse{effectedRules: effectedRules}
 	case command.Type_COMMAND_TYPE_REMOVE_FILTERED_POLICY:
 		var p command.RemoveFilteredPolicyPayload
 		if err = proto.Unmarshal(cmd.Payload, &p); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
+		var effectedRules [][]string
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
-			_, err := enforcer.RemoveFilteredPolicySelf(nil, p.Sec, p.PType, int(p.FieldIndex), p.FieldValues...)
+			effectedRules, err = enforcer.RemoveFilteredPolicySelf(persist, p.Sec, p.PType, int(p.FieldIndex), p.FieldValues...)
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
-		return &FSMResponse{}
+		return &FSMResponse{effectedRules: effectedRules}
 	case command.Type_COMMAND_TYPE_CLEAR_POLICY:
 		if e, ok := s.enforcers.Load(cmd.Namespace); ok {
 			enforcer := e.(*casbin.DistributedEnforcer)
-			err := enforcer.ClearPolicySelf(nil)
+			err := enforcer.ClearPolicySelf(persist)
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
@@ -176,7 +237,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_METADATA_SET:
 		var ms command.MetadataSet
 		if err := proto.UnmarshalMerge(cmd.Payload, &ms); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
 		func() {
 			s.metaMu.Lock()
@@ -188,18 +249,18 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 				s.meta[ms.RaftId][k] = v
 			}
 		}()
-		return &FSMEnforceResponse{}
+		return &FSMResponse{}
 	case command.Type_COMMAND_TYPE_METADATA_DELETE:
 		var md command.MetadataDelete
 		if err := proto.UnmarshalMerge(cmd.Payload, &md); err != nil {
-			return &FSMEnforceResponse{error: UnmarshalFailed}
+			return &FSMResponse{error: UnmarshalFailed}
 		}
 		func() {
 			s.metaMu.Lock()
 			defer s.metaMu.Unlock()
 			delete(s.meta, md.RaftId)
 		}()
-		return &FSMEnforceResponse{}
+		return &FSMResponse{}
 	default:
 		return &FSMResponse{error: fmt.Errorf("unhandled command: %v", cmd.Type)}
 	}
@@ -207,15 +268,17 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 }
 
 type fsmSnapshot struct {
-	startT    time.Time
-	logger    *log.Logger
-	enforcers []byte
-	meta      []byte
+	startT time.Time
+	logger *log.Logger
+	models []byte
+	state  []byte
+	meta   []byte
 }
 
 type persistData struct {
-	Enforcers []byte
-	Meta      []byte
+	Models []byte
+	State  []byte
+	Meta   []byte
 }
 
 // Persist implements persistence of states
@@ -225,13 +288,14 @@ func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	}()
 	err := func() error {
 		data, err := json.Marshal(persistData{
-			Enforcers: f.enforcers,
-			Meta:      f.meta,
+			State:  f.state,
+			Models: f.models,
+			Meta:   f.meta,
 		})
 		if err != nil {
 			return err
 		}
-		// Write the cluster Enforcers.
+		// JSON the cluster Enforcers.
 		if _, err := sink.Write(data); err != nil {
 			return err
 		}
@@ -253,34 +317,33 @@ func (f fsmSnapshot) Release() {
 
 // Snapshot creates a persistable state for application
 func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
-	enforcers := make(map[string]EnforcerState)
-	s.enforcers.Range(func(key, value interface{}) bool {
-		e, ok := value.(*casbin.DistributedEnforcer)
-		if ok {
-			es, err := CreateEnforcerState(e)
-			if err != nil {
-				return false
-			}
-			enforcers[key.(string)] = es
-		} else {
-			// empty case, e.g. just created namespace
-			enforcers[key.(string)] = EnforcerState{}
-		}
-		return true
-	})
 	var err error
 	fsm := &fsmSnapshot{
 		startT: time.Now(),
 		logger: s.logger,
 	}
-	fsm.enforcers, err = json.Marshal(enforcers)
+	writer := new(bytes.Buffer)
+	err = s.enforcersState.Snapshot(writer)
 	if err != nil {
-		s.logger.Printf("failed to encode Enforcers for snapshot: %s", err.Error())
+		s.logger.Printf("failed to encode enforcerState: %s", err.Error())
 		return nil, err
 	}
+	models := make(map[string]string)
+	s.enforcers.Range(func(key, value interface{}) bool {
+		if e, ok := value.(*casbin.DistributedEnforcer); ok {
+			models[key.(string)] = e.GetModel().ToText()
+		}
+		return true
+	})
+	fsm.state = writer.Bytes()
 	fsm.meta, err = json.Marshal(s.meta)
 	if err != nil {
-		s.logger.Printf("failed to encode Meta for snapshot: %s", err.Error())
+		s.logger.Printf("failed to encode Meta: %s", err.Error())
+		return nil, err
+	}
+	fsm.models, err = json.Marshal(models)
+	if err != nil {
+		s.logger.Printf("failed to encode Meta: %s", err.Error())
 		return nil, err
 	}
 	return fsm, nil
@@ -288,34 +351,57 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 
 // Restore restores form a preexisted states
 func (s *Store) Restore(closer io.ReadCloser) error {
+	var err error
 	var data persistData
-	err := json.NewDecoder(closer).Decode(&data)
+	err = json.NewDecoder(closer).Decode(&data)
 	if err != nil {
+		s.logger.Println("failed to decode restore data", err)
 		return err
 	}
-	var meta map[string]map[string]string
-	err = json.Unmarshal(data.Meta, &meta)
+
+	err = s.enforcersState.Restore(bytes.NewReader(data.State))
 	if err != nil {
-		return err
-	}
-	var enforcers map[string]EnforcerState
-	err = json.Unmarshal(data.Enforcers, &enforcers)
-	if err != nil {
+		s.logger.Println("failed to restore enforcer state", err)
 		return err
 	}
 	s.enforcers = sync.Map{}
-	for k, v := range enforcers {
-		e, err := casbin.NewDistributedEnforcer()
-		if err != nil {
-			return err
+	models := make(map[string]string)
+	err = json.Unmarshal(data.Models, &models)
+	if err != nil {
+		s.logger.Println("failed to unmarshal models state", err)
+		return err
+	}
+	err = s.enforcersState.Foreach(func(name []byte, b *bolt.Bucket) error {
+		if model, ok := models[string(name)]; ok {
+			enforcer, err := casbin.NewDistributedEnforcer()
+			if err != nil {
+				s.logger.Println("failed to create enforcer", err)
+				return err
+			}
+			a, err := adapter.NewAdapter(s.enforcersState, string(name), "")
+			if err != nil {
+				s.logger.Println("failed to create adapter", err)
+				return err
+			}
+			model, err := model2.NewModelFromString(model)
+			if err != nil {
+				s.logger.Println("failed to create model", err)
+				return err
+			}
+			err = enforcer.InitWithModelAndAdapter(model, a)
+			if err != nil {
+				s.logger.Println("failed to init enforcer", err)
+				return err
+			}
+			s.enforcers.Store(string(name), enforcer)
+		} else {
+			s.logger.Printf("%s namespace is not existing a valid model\n", string(name))
 		}
-		m, err := CreateModelFormEnforcerState(v)
-		if err != nil {
-			return err
-		}
-		e.SetModel(m)
-		s.enforcers.Store(k, e)
-
+		return nil
+	})
+	if err != nil {
+		s.logger.Println("failed to restore enforcer ", err)
+		return err
 	}
 	return nil
 }

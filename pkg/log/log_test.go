@@ -47,7 +47,7 @@ func Test_LogNewExistNotEmpty(t *testing.T) {
 	path := mustTempFile()
 	defer os.Remove(path)
 
-	// Write some entries directory to the BoltDB Raft store.
+	// JSON some entries directory to the BoltDB Raft store.
 	bs, err := raftboltdb.NewBoltStore(path)
 	if err != nil {
 		t.Fatalf("failed to create bolt store: %s", err)
@@ -149,7 +149,7 @@ func Test_LogLastCommandIndexNotExist(t *testing.T) {
 	path := mustTempFile()
 	defer os.Remove(path)
 
-	// Write some entries directory to the BoltDB Raft store.
+	// JSON some entries directory to the BoltDB Raft store.
 	bs, err := raftboltdb.NewBoltStore(path)
 	if err != nil {
 		t.Fatalf("failed to create bolt store: %s", err)

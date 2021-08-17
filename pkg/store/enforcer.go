@@ -103,11 +103,13 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 		r := f.Response().(*FSMEnforceResponse)
 		return r.ok, r.error
 	}
-
 	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_WEAK && s.raft.State() != raft.Leader {
 		return false, ErrNotLeader
 	}
-	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_NONE && freshness > 0 && time.Since(s.raft.LastContact()).Nanoseconds() > freshness {
+	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_NONE &&
+		freshness > 0 &&
+		s.raft.State() != raft.Leader &&
+		time.Since(s.raft.LastContact()).Nanoseconds() > freshness {
 		return false, ErrStaleRead
 	}
 	if e, ok := s.enforcers.Load(ns); ok {

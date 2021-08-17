@@ -9,14 +9,14 @@ import (
 )
 
 // AddPolicies implements the casbin.Adapter interface.
-func (s *Store) AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error {
+func (s *Store) AddPolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error) {
 	payload, err := proto.Marshal(&command.AddPoliciesPayload{
 		Sec:   sec,
 		PType: pType,
 		Rules: command.NewStringArray(rules),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
@@ -26,29 +26,29 @@ func (s *Store) AddPolicies(ctx context.Context, ns string, sec string, pType st
 		Metadata:  nil,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f := s.raft.Apply(cmd, s.ApplyTimeout)
 	if e := f.(raft.Future); e.Error() != nil {
 		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
+			return nil, ErrNotLeader
 		}
-		return e.Error()
+		return nil, e.Error()
 	}
 	r := f.Response().(*FSMResponse)
-	return r.error
+	return r.effectedRules, r.error
 }
 
 // RemovePolicies implements the casbin.Adapter interface.
-func (s *Store) RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) error {
+func (s *Store) RemovePolicies(ctx context.Context, ns string, sec string, pType string, rules [][]string) ([][]string, error) {
 	payload, err := proto.Marshal(&command.RemovePoliciesPayload{
 		Sec:   sec,
 		PType: pType,
 		Rules: command.NewStringArray(rules),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
@@ -58,22 +58,22 @@ func (s *Store) RemovePolicies(ctx context.Context, ns string, sec string, pType
 		Metadata:  nil,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f := s.raft.Apply(cmd, s.ApplyTimeout)
 	if e := f.(raft.Future); e.Error() != nil {
 		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
+			return nil, ErrNotLeader
 		}
-		return e.Error()
+		return nil, e.Error()
 	}
 	r := f.Response().(*FSMResponse)
-	return r.error
+	return r.effectedRules, r.error
 }
 
 // RemoveFilteredPolicy implements the casbin.Adapter interface.
-func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) error {
+func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string, pType string, fi int32, fv []string) ([][]string, error) {
 	payload, err := proto.Marshal(&command.RemoveFilteredPolicyPayload{
 		Sec:         sec,
 		PType:       pType,
@@ -81,7 +81,7 @@ func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string,
 		FieldValues: fv,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
@@ -91,22 +91,22 @@ func (s *Store) RemoveFilteredPolicy(ctx context.Context, ns string, sec string,
 		Metadata:  nil,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	f := s.raft.Apply(cmd, s.ApplyTimeout)
 	if e := f.(raft.Future); e.Error() != nil {
 		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
+			return nil, ErrNotLeader
 		}
-		return e.Error()
+		return nil, e.Error()
 	}
 	r := f.Response().(*FSMResponse)
-	return r.error
+	return r.effectedRules, r.error
 }
 
 // UpdatePolicies implements the casbin.Adapter interface.
-func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) error {
+func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType string, nr, or [][]string) (bool, error) {
 	payload, err := proto.Marshal(&command.UpdatePoliciesPayload{
 		Sec:      sec,
 		PType:    pType,
@@ -114,7 +114,7 @@ func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType
 		OldRules: command.NewStringArray(or),
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	cmd, err := proto.Marshal(&command.Command{
@@ -124,18 +124,18 @@ func (s *Store) UpdatePolicies(ctx context.Context, ns string, sec string, pType
 		Metadata:  nil,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	f := s.raft.Apply(cmd, s.ApplyTimeout)
 	if e := f.(raft.Future); e.Error() != nil {
 		if e.Error() == raft.ErrNotLeader {
-			return ErrNotLeader
+			return false, ErrNotLeader
 		}
-		return e.Error()
+		return false, e.Error()
 	}
 	r := f.Response().(*FSMResponse)
-	return r.error
+	return r.effected, r.error
 }
 
 // ClearPolicy implements the casbin.Adapter interface.

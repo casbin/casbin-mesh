@@ -164,7 +164,7 @@ func (s *httpService) handleEnforce(ctx *http.Context) (err error) {
 	if output, err = s.Enforce(context.TODO(), request.NS, request.Level, request.Freshness, request.Params...); err != nil {
 		return
 	}
-	return ctx.StatusCode(http2.StatusOK).Write(EnforceReply{Ok: output})
+	return ctx.StatusCode(http2.StatusOK).JSON(EnforceReply{Ok: output})
 }
 
 type AddPoliciesRequest struct {
@@ -174,16 +174,21 @@ type AddPoliciesRequest struct {
 	Rules [][]string `json:"rules" validate:"required"`
 }
 
+type Response struct {
+	Effected      bool       `json:"effected,omitempty"`
+	EffectedRules [][]string `json:"effected_rules,omitempty"`
+}
+
 func (s *httpService) handleAddPolicies(ctx *http.Context) (err error) {
 	var request AddPoliciesRequest
 	if err = s.decode(ctx.Request.Body, &request); err != nil {
 		return
 	}
-	if err = s.AddPolicies(context.TODO(), request.NS, request.Sec, request.PType, request.Rules); err != nil {
-		return
+	var rules [][]string
+	if rules, err = s.AddPolicies(context.TODO(), request.NS, request.Sec, request.PType, request.Rules); err != nil {
+		return err
 	}
-	ctx.StatusCode(http2.StatusOK)
-	return
+	return ctx.StatusCode(http2.StatusOK).JSON(Response{EffectedRules: rules})
 }
 
 type RemovePoliciesRequest struct {
@@ -198,11 +203,12 @@ func (s *httpService) handleRemovePolicies(ctx *http.Context) (err error) {
 	if err = s.decode(ctx.Request.Body, &request); err != nil {
 		return
 	}
-	if err = s.RemovePolicies(context.TODO(), request.NS, request.Sec, request.PType, request.Rules); err != nil {
+	var rules [][]string
+	if rules, err = s.RemovePolicies(context.TODO(), request.NS, request.Sec, request.PType, request.Rules); err != nil {
 		return
 	}
-	ctx.StatusCode(http2.StatusOK)
-	return
+
+	return ctx.StatusCode(http2.StatusOK).JSON(Response{EffectedRules: rules})
 }
 
 type RemoveFilteredPolicyRequest struct {
@@ -218,11 +224,11 @@ func (s *httpService) handleRemoveFilteredPolicy(ctx *http.Context) (err error) 
 	if err = s.decode(ctx.Request.Body, &request); err != nil {
 		return
 	}
-	if err = s.RemoveFilteredPolicy(context.TODO(), request.NS, request.Sec, request.PType, request.FieldIndex, request.FieldValues); err != nil {
+	var rules [][]string
+	if rules, err = s.RemoveFilteredPolicy(context.TODO(), request.NS, request.Sec, request.PType, request.FieldIndex, request.FieldValues); err != nil {
 		return
 	}
-	ctx.StatusCode(http2.StatusOK)
-	return
+	return ctx.StatusCode(http2.StatusOK).JSON(Response{EffectedRules: rules})
 }
 
 type UpdatePoliciesRequest struct {
@@ -238,11 +244,11 @@ func (s *httpService) handleUpdatePolicies(ctx *http.Context) (err error) {
 	if err = s.decode(ctx.Request.Body, &request); err != nil {
 		return
 	}
-	if err = s.UpdatePolicies(context.TODO(), request.NS, request.Sec, request.PType, request.NewRules, request.OldRules); err != nil {
+	var effected bool
+	if effected, err = s.UpdatePolicies(context.TODO(), request.NS, request.Sec, request.PType, request.NewRules, request.OldRules); err != nil {
 		return
 	}
-	ctx.StatusCode(http2.StatusOK)
-	return
+	return ctx.StatusCode(http2.StatusOK).JSON(Response{Effected: effected})
 }
 
 type ClearPolicyRequest struct {
@@ -266,7 +272,7 @@ func (s *httpService) handleStats(ctx *http.Context) error {
 	if err != nil {
 		return err
 	}
-	return ctx.StatusCode(http2.StatusOK).Write(out)
+	return ctx.StatusCode(http2.StatusOK).JSON(out)
 }
 
 func (s *httpService) decode(reader io.ReadCloser, output interface{}) (err error) {
