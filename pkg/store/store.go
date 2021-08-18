@@ -125,7 +125,7 @@ type Store struct {
 	metaMu         sync.RWMutex
 	meta           map[string]map[string]string
 	enforcers      sync.Map
-	enforcersState *adapter.BoltStore
+	enforcersState *adapter.BadgerStore
 	logger         *log.Logger
 
 	ShutdownOnRemove   bool
@@ -200,7 +200,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 	s.logger.Printf("%d pre-existing snapshots present", len(snaps))
 	s.snapsExistOnOpen = len(snaps) > 0
 	// TODO !important. stale read? restart after the node crashed
-	s.enforcersState, err = adapter.NewBoltStore(filepath.Join(s.raftDir, stateDBPath))
+	s.enforcersState, err = adapter.NewBadgerStore(filepath.Join(s.raftDir, stateDBPath))
 	if err != nil {
 		return fmt.Errorf("new state store: %s", err)
 	}

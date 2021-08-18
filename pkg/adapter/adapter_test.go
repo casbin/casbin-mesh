@@ -14,7 +14,7 @@ const testDB = "test.db"
 
 type AdapterTestSuite struct {
 	suite.Suite
-	db       *BoltStore
+	db       *BadgerStore
 	enforcer casbin.IEnforcer
 }
 
@@ -29,9 +29,9 @@ func testGetPolicy(t *testing.T, e casbin.IEnforcer, wanted [][]string) {
 func (suite *AdapterTestSuite) SetupTest() {
 	t := suite.T()
 
-	db, err := NewBoltStore(testDB)
+	db, err := NewBadgerStore(testDB)
 	if err != nil {
-		t.Fatalf("error opening bolt db: %s\n", err.Error())
+		t.Fatalf("error opening db: %s\n", err.Error())
 	}
 	suite.db = db
 
@@ -54,8 +54,9 @@ func (suite *AdapterTestSuite) SetupTest() {
 }
 
 func (suite *AdapterTestSuite) TearDownTest() {
+	suite.db.conn.Close()
 	if _, err := os.Stat(testDB); err == nil {
-		os.Remove(testDB)
+		os.RemoveAll(testDB)
 	}
 }
 
@@ -107,4 +108,10 @@ func (suite *AdapterTestSuite) Test_AutoSavePolicy() {
 	e.RemovePolicies([][]string{{"roger", "data1", "read"}, {"roger", "data1", "write"}})
 	e.LoadPolicy()
 	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+
+	e.AddPolicies([][]string{{"weny", "data1", "read"}})
+
+	e.UpdatePolicies([][]string{{"weny", "data1", "read"}}, [][]string{{"weny", "data1", "updated"}})
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}, {"weny", "data1", "updated"}})
+
 }

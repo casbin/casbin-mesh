@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"io"
 	"log"
@@ -56,11 +55,9 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	switch cmd.Type {
 	case command.Type_COMMAND_TYPE_LIST_NAMESPACES:
 		var ns []string
-		err := s.enforcersState.View(func(tx *bolt.Tx) error {
-			return tx.ForEach(func(name []byte, b *bolt.Bucket) error {
-				ns = append(ns, string(name))
-				return nil
-			})
+		err := s.enforcersState.ForEach(func(namespace []byte, bucket *adapter.Bucket) error {
+			ns = append(ns, string(namespace))
+			return nil
 		})
 		if err != nil {
 			return &ListNamespacesResponse{error: StateTransactionFailed}
@@ -81,7 +78,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_LIST_POLICIES:
 		ns := cmd.Namespace
 		var policies [][]string
-		err := s.enforcersState.View(func(tx *bolt.Tx) error {
+		err := s.enforcersState.View(func(tx *adapter.Tx) error {
 			bucket := tx.Bucket([]byte(ns))
 			if bucket == nil {
 				return errors.New("bucket is empty")
@@ -371,7 +368,7 @@ func (s *Store) Restore(closer io.ReadCloser) error {
 		s.logger.Println("failed to unmarshal models state", err)
 		return err
 	}
-	err = s.enforcersState.Foreach(func(name []byte, b *bolt.Bucket) error {
+	err = s.enforcersState.ForEach(func(name []byte, bucket *adapter.Bucket) error {
 		if model, ok := models[string(name)]; ok {
 			enforcer, err := casbin.NewDistributedEnforcer()
 			if err != nil {

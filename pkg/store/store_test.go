@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/casbin/casbin-mesh/proto/command"
-
 	"github.com/stretchr/testify/assert"
 )
 

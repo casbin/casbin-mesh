@@ -4,34 +4,32 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"strings"
-
-	bolt "github.com/boltdb/bolt"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
+	"strings"
 )
 
 // CasbinRule represents a Casbin rule line.
 type CasbinRule []string
 
 func (rule CasbinRule) getKey() string {
-	return strings.Join(rule, ",")
+	return strings.Join(rule, "::")
 }
 
 type adapter struct {
-	db            *bolt.DB
+	db            *BadgerStore
 	namespace     []byte
 	builtinPolicy string
 }
 
 // NewAdapter creates a new adapter.
-func NewAdapter(store *BoltStore, bucket string, builtinPolicy string) (*adapter, error) {
+func NewAdapter(store *BadgerStore, bucket string, builtinPolicy string) (*adapter, error) {
 	if bucket == "" {
 		return nil, errors.New("must provide a namespace")
 	}
 
 	adapter := &adapter{
-		db:            store.conn,
+		db:            store,
 		namespace:     []byte(bucket),
 		builtinPolicy: builtinPolicy,
 	}
@@ -44,7 +42,7 @@ func NewAdapter(store *BoltStore, bucket string, builtinPolicy string) (*adapter
 }
 
 func (a *adapter) init() error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		_, err := tx.CreateBucketIfNotExists(a.namespace)
 		return err
 	})
@@ -62,7 +60,7 @@ func (a *adapter) LoadPolicy(model model.Model) error {
 		}
 	}
 
-	return a.db.View(func(tx *bolt.Tx) error {
+	return a.db.View(func(tx *Tx) error {
 		bucket := tx.Bucket(a.namespace)
 
 		return bucket.ForEach(func(k, v []byte) error {
@@ -84,7 +82,7 @@ func (a *adapter) SavePolicy(model model.Model) error {
 
 // AddPolicy inserts or updates a rule.
 func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		bucket := tx.Bucket(a.namespace)
 
 		line := convertRule(ptype, rule)
@@ -93,14 +91,13 @@ func (a *adapter) AddPolicy(sec string, ptype string, rule []string) error {
 		if err != nil {
 			return err
 		}
-
 		return bucket.Put([]byte(line.getKey()), bts)
 	})
 }
 
 // AddPolicies inserts or updates multiple rules by iterating over each one and inserting it into the namespace.
 func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		bucket := tx.Bucket(a.namespace)
 
 		for _, r := range rules {
@@ -152,7 +149,7 @@ func (rule CasbinRule) filter() string {
 
 // RemovePolicy removes a policy line that matches key.
 func (a *adapter) RemovePolicy(sec string, ptype string, line []string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		rule := convertRule(ptype, line)
 		bucket := tx.Bucket(a.namespace)
 		return bucket.Delete([]byte(rule.getKey()))
@@ -167,10 +164,10 @@ func (a *adapter) UpdateFilteredPolicies(sec string, ptype string, newPolicies [
 // UpdatePolicy updates a policy rule from storage.
 // This is part of the Auto-Save feature.
 func (a *adapter) UpdatePolicy(sec string, ptype string, oldRule, newPolicy []string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		rule := convertRule(ptype, oldRule)
 		bucket := tx.Bucket(a.namespace)
-		if bucket.Get([]byte(rule.getKey())) != nil {
+		if bucket.Exist([]byte(rule.getKey())) {
 			if err := bucket.Delete([]byte(rule.getKey())); err != nil {
 				return err
 			}
@@ -193,14 +190,14 @@ var (
 
 // UpdatePolicies updates some policy rules to storage, like db, redis.
 func (a *adapter) UpdatePolicies(sec string, ptype string, oldRules, newRules [][]string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		bucket := tx.Bucket(a.namespace)
 		if len(oldRules) != len(newRules) {
 			return InvalidRulesLen
 		}
 		for i := 0; i < len(oldRules); i++ {
 			or := convertRule(ptype, oldRules[i])
-			if bucket.Get([]byte(or.getKey())) != nil {
+			if bucket.Exist([]byte(or.getKey())) {
 				if err := bucket.Delete([]byte(or.getKey())); err != nil {
 					return err
 				}
@@ -220,7 +217,7 @@ func (a *adapter) UpdatePolicies(sec string, ptype string, oldRules, newRules []
 
 // RemovePolicies removes multiple policies.
 func (a *adapter) RemovePolicies(sec string, ptype string, rules [][]string) error {
-	return a.db.Update(func(tx *bolt.Tx) error {
+	return a.db.Update(func(tx *Tx) error {
 		bucket := tx.Bucket(a.namespace)
 		for _, r := range rules {
 			rule := convertRule(ptype, r)
