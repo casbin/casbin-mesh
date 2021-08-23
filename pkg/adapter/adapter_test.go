@@ -94,11 +94,10 @@ func (suite *AdapterTestSuite) Test_AutoSavePolicy() {
 	e.LoadPolicy()
 	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}, {"roger", "data1", "read"}, {"roger", "data1", "write"}})
 
-	//e.RemoveFilteredPolicy(0, "roger")
-	//e.LoadPolicy()
-	//testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
+	e.RemoveFilteredPolicy(0, "roger")
+	e.LoadPolicy()
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
 	//
-	//_, err := e.RemoveFilteredPolicy(1, "data1")
 	//assert.EqualError(t, err, "fieldIndex != 0: adapter only supports filter by prefix")
 
 	e.AddPolicies([][]string{{"roger", "data1", "read"}, {"roger", "data1", "write"}})
@@ -110,8 +109,12 @@ func (suite *AdapterTestSuite) Test_AutoSavePolicy() {
 	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
 
 	e.AddPolicies([][]string{{"weny", "data1", "read"}})
-
 	e.UpdatePolicies([][]string{{"weny", "data1", "read"}}, [][]string{{"weny", "data1", "updated"}})
+	e.LoadPolicy()
 	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}, {"weny", "data1", "updated"}})
+
+	e.RemoveFilteredPolicy(1, "data1")
+	e.LoadPolicy()
+	testGetPolicy(t, e, [][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}})
 
 }
