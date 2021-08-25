@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
 	"os"
 	"path/filepath"
@@ -97,7 +98,9 @@ const (
 
 // Store is casbin memory data, where all changes are made via Raft consensus.
 type Store struct {
-	raftDir string
+	enabledAuth   map[string]bool
+	authCredStore *auth.CredentialsStore
+	raftDir       string
 
 	raft   *raft.Raft // The consensus mechanism.
 	ln     Listener
@@ -155,7 +158,7 @@ func New(ln Listener, c *StoreConfig) *Store {
 		logger = log.New(os.Stderr, "[store] ", log.LstdFlags)
 	}
 
-	return &Store{
+	store := &Store{
 		ln:           ln,
 		raftDir:      c.Dir,
 		raftID:       c.ID,
@@ -163,6 +166,26 @@ func New(ln Listener, c *StoreConfig) *Store {
 		logger:       logger,
 		ApplyTimeout: applyTimeout,
 	}
+
+	if c.BasicAuth {
+		store.authCredStore = auth.NewCredentialsStore()
+		store.enabledAuth = map[string]bool{"basic": true}
+	}
+
+	return store
+
+}
+
+// InitRoot init a root account
+func (s *Store) InitRoot(username, password string) error {
+	err := s.authCredStore.Add(username, password)
+	if err != nil {
+		return err
+	}
+	// Enforce Add default namespace for auth
+	// Setup model
+	// Write policies
+	return nil
 }
 
 // Open opens the Store. If enableBootstrap is set, then this node becomes a
