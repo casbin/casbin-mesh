@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
+	"github.com/dgraph-io/badger/v3"
 	"strings"
 )
 
@@ -139,7 +140,63 @@ func (a *adapter) AddPolicies(sec string, ptype string, rules [][]string) error 
 // Once these keys are found we can iterate over and remove them.
 // Each policy rule is stored as a row in Bolt: p::subject-a::action-a::get
 func (a *adapter) RemoveFilteredPolicy(sec string, ptype string, fieldIndex int, fieldValues ...string) error {
-	panic("not implement")
+	// contains scan
+	if fieldValues == nil {
+		return errors.New("empty filed values")
+	}
+	matched := [][]byte{}
+
+	key := []byte(strings.Join(append([]string{ptype}, fieldValues...), "::"))
+	if fieldIndex == 0 {
+		if err := a.db.View(func(tx *Tx) error {
+			c := tx.Bucket(a.namespace)
+			prefix := c.withPrefix(key)
+			it := c.txn.NewIterator(badger.DefaultIteratorOptions)
+			defer it.Close()
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				item := it.Item()
+				k := item.Key()
+				matched = append(matched, k)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	} else if fieldIndex > -1 {
+		if err := a.db.View(func(tx *Tx) error {
+			c := tx.Bucket(a.namespace)
+			it := c.txn.NewIterator(badger.DefaultIteratorOptions)
+			defer it.Close()
+			// scan all namespace
+			prefix := append(append(prefixPolicies, c.namespace...), []byte(ptype)...)
+			keyStr := strings.Join(fieldValues, "::")
+			for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+				found := string(it.Item().Key())
+				if strings.Contains(found, keyStr) {
+					item := it.Item()
+					k := item.Key()
+					values := strings.Split(string(k[len(a.namespace):]), "::")
+					if fieldIndex+1 < len(values) {
+						if values[fieldIndex+1] == fieldValues[0] {
+							// matched
+							matched = append(matched, k)
+						}
+					}
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return a.db.Update(func(tx *Tx) error {
+		for _, k := range matched {
+			if err := tx.txn.Delete(k); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (rule CasbinRule) filter() string {

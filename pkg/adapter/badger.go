@@ -147,7 +147,7 @@ func (b BadgerStore) ForEach(fn func(namespace []byte, bucket *Bucket) error) er
 	return b.conn.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
-		prefix := append(prefixNamespace)
+		prefix := prefixNamespace
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := item.Key()
