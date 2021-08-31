@@ -101,11 +101,11 @@ type Store struct {
 	enabledAuth   map[string]bool
 	authCredStore *auth.CredentialsStore
 	raftDir       string
-
-	raft   *raft.Raft // The consensus mechanism.
-	ln     Listener
-	raftTn *raft.NetworkTransport
-	raftID string // Node ID.
+	rootUsername  string
+	raft          *raft.Raft // The consensus mechanism.
+	ln            Listener
+	raftTn        *raft.NetworkTransport
+	raftID        string // Node ID.
 
 	raftLog    raft.LogStore    // Persistent log store.
 	raftStable raft.StableStore // Persistent k-v store.
@@ -143,6 +143,11 @@ type Store struct {
 	numTrailingLogs uint64
 }
 
+// CheckRoot returns true is root account
+func (s *Store) CheckRoot(username string, password string) bool {
+	return s.rootUsername == username && s.authCredStore.Check(username, password)
+}
+
 // IsNewNode returns whether a node using raftDir would be a brand new node.
 // It also means that the window this node joining a different cluster has passed.
 func IsNewNode(raftDir string) bool {
@@ -169,7 +174,12 @@ func New(ln Listener, c *StoreConfig) *Store {
 
 	if c.BasicAuth {
 		store.authCredStore = auth.NewCredentialsStore()
+		err := store.authCredStore.Add(c.RootUsername, c.RootPassword)
+		if err != nil {
+			log.Fatalf("failed to set root account:%s", err.Error())
+		}
 		store.enabledAuth = map[string]bool{"basic": true}
+		store.rootUsername = c.RootUsername
 	}
 
 	return store

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
@@ -31,7 +32,7 @@ const desc = `casbin-mesh is a lightweight, distributed casbin service, which us
 engine.`
 
 var (
-	auth                   bool
+	enableAuth             bool
 	rootUsername           string
 	rootPassword           string
 	raftAddr               string
@@ -66,7 +67,7 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&auth, "enable basic auth", false, "Enable Basic Auth")
+	flag.BoolVar(&enableAuth, "enable basic auth", false, "Enable Basic Auth")
 	flag.StringVar(&rootUsername, "root account username", "root", "Root Account Username")
 	flag.StringVar(&rootPassword, "root account password", "root", "Root Account Password")
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
@@ -172,8 +173,11 @@ func main() {
 	}
 
 	str := store.New(raftLn, &store.StoreConfig{
-		Dir: dataPath,
-		ID:  idOrRaftAddr(),
+		Dir:          dataPath,
+		ID:           idOrRaftAddr(),
+		BasicAuth:    enableAuth,
+		RootPassword: rootUsername,
+		RootUsername: rootPassword,
 	})
 
 	// Set optional parameters on store.
@@ -281,13 +285,17 @@ func main() {
 			log.Println("successfully joined cluster at", j)
 		}
 
-		// TODO init root account
-
 	}
-	// TODO
+
 	// Wait until the store is in full consensus.
 	if err := waitForConsensus(str); err != nil {
 		log.Fatalf(err.Error())
+	}
+	// Init Auth Enforce
+	if isNew && enableAuth {
+		if err := str.InitAuth(context.TODO()); err != nil {
+			log.Fatalf("failed to init auth: %s", err.Error())
+		}
 	}
 	// This may be a standalone server. In that case set its own metadata.
 	if err := str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
