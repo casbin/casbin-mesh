@@ -21,7 +21,7 @@ func (s *server) Options(f func(*Config)) {
 
 // Use set global middlewares
 func (s *server) Use(middlewares ...HandlerFunc) {
-	s.middlewares = middlewares
+	s.middlewares = append(s.middlewares, middlewares...)
 }
 
 // Handle registers the handler for the given pattern.

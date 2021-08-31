@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/handler/http/middleware"
 	"io"
 	http2 "net/http"
 	"net/http/httputil"
@@ -36,6 +37,11 @@ func NewHttpService(core Core) *httpService {
 	srv := httpService{httpS, core, validate}
 	// set response header
 	httpS.Use(setResponseHeader)
+
+	// enable global middleware
+	if core.EnabledBasicAuth() {
+		httpS.Use(middleware.BasicAuthor(core.Check))
+	}
 
 	httpS.Handle("/join", srv.handleJoin)
 	httpS.Handle("/remove", srv.handleRemove)

@@ -98,7 +98,22 @@ func (s core) LeaderAPIProto() string {
 	return p
 }
 
+func (s core) CheckRoot(username string) bool {
+	return s.store.CheckRoot(username)
+}
+
+func (s core) Check(username string, password string) bool {
+	return s.store.Check(username, password)
+}
+
+func (s core) EnabledBasicAuth() bool {
+	return s.store.EnabledBasicAuth()
+}
+
 type Core interface {
+	EnabledBasicAuth() bool
+	CheckRoot(username string) bool
+	Check(username string, password string) bool
 	LeaderAPIProto() string
 	LeaderAPIAddr() string
 	ListNamespaces(ctx context.Context) ([]string, error)

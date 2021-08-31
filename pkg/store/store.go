@@ -143,9 +143,20 @@ type Store struct {
 	numTrailingLogs uint64
 }
 
-// CheckRoot returns true is root account
-func (s *Store) CheckRoot(username string, password string) bool {
-	return s.rootUsername == username && s.authCredStore.Check(username, password)
+// CheckRoot returns true when username equals root account
+func (s *Store) CheckRoot(username string) bool {
+	return s.rootUsername == username
+}
+
+// Check validates username and password
+func (s *Store) Check(username, password string) bool {
+	return s.authCredStore.Check(username, password)
+}
+
+// EnabledBasicAuth returns true when basic auth enabled
+func (s *Store) EnabledBasicAuth() bool {
+	_, ok := s.enabledAuth["basic"]
+	return ok
 }
 
 // IsNewNode returns whether a node using raftDir would be a brand new node.
