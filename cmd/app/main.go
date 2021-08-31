@@ -31,6 +31,9 @@ const desc = `casbin-mesh is a lightweight, distributed casbin service, which us
 engine.`
 
 var (
+	auth                   bool
+	rootUsername           string
+	rootPassword           string
 	raftAddr               string
 	raftAdv                string
 	joinSrcIP              string
@@ -63,6 +66,9 @@ var (
 )
 
 func init() {
+	flag.BoolVar(&auth, "enable basic auth", false, "Enable Basic Auth")
+	flag.StringVar(&rootUsername, "root account username", "root", "Root Account Username")
+	flag.StringVar(&rootPassword, "root account password", "root", "Root Account Password")
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
 	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address")
 	flag.StringVar(&raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
@@ -274,6 +280,8 @@ func main() {
 		} else {
 			log.Println("successfully joined cluster at", j)
 		}
+
+		// TODO init root account
 
 	}
 	// TODO
