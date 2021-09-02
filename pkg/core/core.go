@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 
 	"github.com/casbin/casbin-mesh/pkg/store"
 	"github.com/casbin/casbin-mesh/proto/command"
@@ -106,12 +107,17 @@ func (s core) Check(username string, password string) bool {
 	return s.store.Check(username, password)
 }
 
-func (s core) EnabledBasicAuth() bool {
-	return s.store.EnabledBasicAuth()
+func (s core) EnableAuth() bool {
+	return s.store.EnableAuth()
+}
+
+func (s core) Middleware() auth.AuthorMiddleware {
+	return s.Middleware()
 }
 
 type Core interface {
-	EnabledBasicAuth() bool
+	EnableAuth() bool
+	Middleware() auth.AuthorMiddleware
 	CheckRoot(username string) bool
 	Check(username string, password string) bool
 	LeaderAPIProto() string

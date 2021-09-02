@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	middleware "github.com/casbin/casbin-mesh/pkg/handler/grpc/middeware"
 	"github.com/casbin/casbin-mesh/proto/command"
 	_ "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -160,8 +159,8 @@ func newServer(core Core) command.CasbinMeshServer {
 
 func NewGrpcService(core Core) *grpc.Server {
 	var interceptors []grpc.UnaryServerInterceptor
-	if core.EnabledBasicAuth() {
-		interceptors = append(interceptors, middleware.BasicAuthor(core.Check))
+	if core.EnableAuth() {
+		interceptors = append(interceptors, core.Middleware().GrpcMiddleware)
 	}
 	srv := grpc.NewServer(grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(interceptors...)))
 	command.RegisterCasbinMeshServer(srv, newServer(core))

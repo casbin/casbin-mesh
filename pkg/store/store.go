@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/pkg/handler/grpc"
+	"github.com/casbin/casbin-mesh/pkg/handler/http"
 	"log"
 	"os"
 	"path/filepath"
@@ -98,14 +100,14 @@ const (
 
 // Store is casbin memory data, where all changes are made via Raft consensus.
 type Store struct {
-	enabledAuth   map[string]bool
-	authCredStore *auth.CredentialsStore
-	raftDir       string
-	rootUsername  string
-	raft          *raft.Raft // The consensus mechanism.
-	ln            Listener
-	raftTn        *raft.NetworkTransport
-	raftID        string // Node ID.
+	authCredStore  *auth.CredentialsStore
+	authMiddleware auth.AuthorMiddleware
+	raftDir        string
+	rootUsername   string
+	raft           *raft.Raft // The consensus mechanism.
+	ln             Listener
+	raftTn         *raft.NetworkTransport
+	raftID         string // Node ID.
 
 	raftLog    raft.LogStore    // Persistent log store.
 	raftStable raft.StableStore // Persistent k-v store.
@@ -153,10 +155,12 @@ func (s *Store) Check(username, password string) bool {
 	return s.authCredStore.Check(username, password)
 }
 
-// EnabledBasicAuth returns true when basic auth enabled
-func (s *Store) EnabledBasicAuth() bool {
-	_, ok := s.enabledAuth["basic"]
-	return ok
+func (s *Store) EnableAuth() bool {
+	return s.authMiddleware != nil
+}
+
+func (s *Store) Middleware() auth.AuthorMiddleware {
+	return s.authMiddleware
 }
 
 // IsNewNode returns whether a node using raftDir would be a brand new node.
@@ -183,15 +187,18 @@ func New(ln Listener, c *StoreConfig) *Store {
 		ApplyTimeout: applyTimeout,
 	}
 
+	opts := auth.NewRegistryOptions()
 	if c.BasicAuth {
 		store.authCredStore = auth.NewCredentialsStore()
 		err := store.authCredStore.Add(c.RootUsername, c.RootPassword)
 		if err != nil {
 			log.Fatalf("failed to set root account:%s", err.Error())
 		}
-		store.enabledAuth = map[string]bool{"basic": true}
+		opts.RegisterHttpMiddleware(auth.Basic, auth.HttpMiddleware(http.BasicAuthor(store.authCredStore.Check)))
+		opts.RegisterGrpcMiddleware(auth.Basic, auth.GrpcMiddleware(grpc.BasicAuthor(store.authCredStore.Check)))
 		store.rootUsername = c.RootUsername
 	}
+	store.authMiddleware = opts.Compile()
 
 	return store
 

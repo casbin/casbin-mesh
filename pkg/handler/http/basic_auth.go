@@ -3,19 +3,18 @@
 @Date: 2021/09/01 0:04
 */
 
-package middleware
+package http
 
 import (
 	"errors"
 	"fmt"
-	httpWrap "github.com/casbin/casbin-mesh/pkg/handler/http"
 	"net/http"
 )
 
 var ERRUNAUTHORIZED = errors.New("UNAUTHORIZED")
 
-func BasicAuthor(author func(username, password string) bool) httpWrap.HandlerFunc {
-	return func(c *httpWrap.Context) error {
+func BasicAuthor(author func(username, password string) bool) HandlerFunc {
+	return func(c *Context) error {
 		username, password, ok := c.Request.BasicAuth()
 		// UNAUTHORIZED
 		if !ok || !author(username, password) {
