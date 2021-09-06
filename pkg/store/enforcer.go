@@ -126,7 +126,7 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 	}
 }
 
-func (s *Store) InitAuth(ctx context.Context) error {
+func (s *Store) InitAuth(ctx context.Context, rootUsername string) error {
 	// createNamespace
 	if err := s.CreateNamespace(ctx, SystemEnforce); err != nil {
 		return err

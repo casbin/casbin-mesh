@@ -8,8 +8,8 @@ package auth
 import "errors"
 
 const (
-	Basic    = "Basic"
-	AuthType = "AuthType"
+	Basic = "Basic"
+	Noop  = "Noop"
 )
 
 var (

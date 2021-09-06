@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
 	"io/ioutil"
 	"log"
@@ -172,12 +173,14 @@ func main() {
 		log.Fatalf("failed to determine absolute data path: %s", err.Error())
 	}
 
+	authType := auth.Noop
+	if enableAuth {
+		authType = auth.Basic
+	}
 	str := store.New(raftLn, &store.StoreConfig{
-		Dir:          dataPath,
-		ID:           idOrRaftAddr(),
-		BasicAuth:    enableAuth,
-		RootPassword: rootUsername,
-		RootUsername: rootPassword,
+		Dir:      dataPath,
+		ID:       idOrRaftAddr(),
+		AuthType: authType,
 	})
 
 	// Set optional parameters on store.
@@ -293,7 +296,7 @@ func main() {
 	}
 	// Init Auth Enforce
 	if isNew && enableAuth {
-		if err := str.InitAuth(context.TODO()); err != nil {
+		if err := str.InitAuth(context.TODO(), rootUsername); err != nil {
 			log.Fatalf("failed to init auth: %s", err.Error())
 		}
 	}

@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
 	http2 "net/http"
 	"net/http/httputil"
@@ -38,8 +39,9 @@ func NewHttpService(core Core) *httpService {
 	httpS.Use(setResponseHeader)
 
 	// enable global middleware
-	if core.EnableAuth() {
-		httpS.Use(core.Middleware().HttpMiddleware)
+	switch core.AuthType() {
+	case auth.Basic:
+		httpS.Use(http.BasicAuthor(core.Check))
 	}
 
 	httpS.Handle("/join", srv.handleJoin)
