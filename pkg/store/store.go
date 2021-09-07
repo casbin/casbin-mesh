@@ -99,7 +99,7 @@ const (
 // Store is casbin memory data, where all changes are made via Raft consensus.
 type Store struct {
 	authCredStore *auth.CredentialsStore
-	authType      string
+	authType      auth.AuthType
 	raftDir       string
 	rootUsername  string
 	raft          *raft.Raft // The consensus mechanism.
@@ -143,7 +143,7 @@ type Store struct {
 	numTrailingLogs uint64
 }
 
-func (s *Store) AuthType() string {
+func (s *Store) AuthType() auth.AuthType {
 	return s.authType
 }
 

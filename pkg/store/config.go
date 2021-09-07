@@ -1,6 +1,7 @@
 package store
 
 import (
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
 )
 
@@ -10,5 +11,5 @@ type StoreConfig struct {
 	Tn       Transport   // The underlying Transport for raft.
 	ID       string      // Node ID.
 	Logger   *log.Logger // The logger to use to log stuff.
-	AuthType string
+	AuthType auth.AuthType
 }
