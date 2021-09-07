@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var ERRUNAUTHORIZED = errors.New("UNAUTHORIZED")
+var ErrUnauthorized = errors.New("unauthorized")
 
 // parseBasicAuth parses an HTTP Basic Authentication string.
 // "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==" returns ("Aladdin", "open sesame", true).
@@ -49,7 +49,7 @@ func BasicAuthor(author func(username, password string) bool) grpc.UnaryServerIn
 		username, password, ok := getBasicAuthFormContext(ctx)
 		//UNAUTHORIZED
 		if !ok || !author(username, password) {
-			return nil, ERRUNAUTHORIZED
+			return nil, ErrUnauthorized
 		}
 		// AUTHORIZED
 		return handler(ctx, req)

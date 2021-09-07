@@ -11,7 +11,7 @@ import (
 	"net/http"
 )
 
-var ERRUNAUTHORIZED = errors.New("UNAUTHORIZED")
+var ErrUnauthorized = errors.New("unauthorized")
 
 func BasicAuthor(author func(username, password string) bool) HandlerFunc {
 	return func(c *Context) error {
@@ -19,7 +19,7 @@ func BasicAuthor(author func(username, password string) bool) HandlerFunc {
 		// UNAUTHORIZED
 		if !ok || !author(username, password) {
 			unauthorized(c.ResponseWriter, username)
-			return ERRUNAUTHORIZED
+			return ErrUnauthorized
 		}
 		// AUTHORIZED
 		return nil

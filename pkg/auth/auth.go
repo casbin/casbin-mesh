@@ -7,12 +7,14 @@ package auth
 
 import "errors"
 
-const (
-	Basic = "Basic"
-	Noop  = "Noop"
+type AuthType string
+
+var (
+	Basic = AuthType("Basic")
+	Noop  = AuthType("Noop")
 )
 
 var (
-	ERRUNAUTHORIZED      = errors.New("UNAUTHORIZED")
-	ERRUNSUPPORTAUTHTYPE = errors.New("UNSUPPORT AUTH TYPE")
+	ErrUnauthorized        = errors.New("unauthorized")
+	ErrUnsupportedAuthType = errors.New("unsupported auth type")
 )

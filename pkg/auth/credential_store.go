@@ -12,8 +12,8 @@ import (
 	"io"
 )
 
-// BasicAuther is the interface an object must support to return basic auth information.
-type BasicAuther interface {
+// BasicAuthProvider is the interface an object must support to return basic auth information.
+type BasicAuthProvider interface {
 	BasicAuth() (string, string)
 }
 
@@ -102,7 +102,7 @@ func (c *CredentialsStore) Check(username, password string) bool {
 }
 
 // CheckRequest returns true if b contains a valid username and password.
-func (c *CredentialsStore) CheckRequest(b BasicAuther) bool {
+func (c *CredentialsStore) CheckRequest(b BasicAuthProvider) bool {
 	username, password := b.BasicAuth()
 	if !c.Check(username, password) {
 		return false
