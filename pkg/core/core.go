@@ -2,7 +2,7 @@ package core
 
 import (
 	"context"
-
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"github.com/casbin/casbin-mesh/pkg/store"
 	"github.com/casbin/casbin-mesh/proto/command"
 )
@@ -98,7 +98,17 @@ func (s core) LeaderAPIProto() string {
 	return p
 }
 
+func (s core) Check(username string, password string) bool {
+	return s.store.Check(username, password)
+}
+
+func (s core) AuthType() auth.AuthType {
+	return s.store.AuthType()
+}
+
 type Core interface {
+	AuthType() auth.AuthType
+	Check(username string, password string) bool
 	LeaderAPIProto() string
 	LeaderAPIAddr() string
 	ListNamespaces(ctx context.Context) ([]string, error)

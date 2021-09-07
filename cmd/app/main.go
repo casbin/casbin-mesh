@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
 	"io/ioutil"
 	"log"
@@ -31,6 +33,9 @@ const desc = `casbin-mesh is a lightweight, distributed casbin service, which us
 engine.`
 
 var (
+	enableAuth             bool
+	rootUsername           string
+	rootPassword           string
 	raftAddr               string
 	raftAdv                string
 	joinSrcIP              string
@@ -63,6 +68,9 @@ var (
 )
 
 func init() {
+	flag.BoolVar(&enableAuth, "enable basic auth", false, "Enable Basic Auth")
+	flag.StringVar(&rootUsername, "root account username", "root", "Root Account Username")
+	flag.StringVar(&rootPassword, "root account password", "root", "Root Account Password")
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
 	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address")
 	flag.StringVar(&raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
@@ -165,9 +173,14 @@ func main() {
 		log.Fatalf("failed to determine absolute data path: %s", err.Error())
 	}
 
+	authType := auth.Noop
+	if enableAuth {
+		authType = auth.Basic
+	}
 	str := store.New(raftLn, &store.StoreConfig{
-		Dir: dataPath,
-		ID:  idOrRaftAddr(),
+		Dir:      dataPath,
+		ID:       idOrRaftAddr(),
+		AuthType: authType,
 	})
 
 	// Set optional parameters on store.
@@ -276,10 +289,16 @@ func main() {
 		}
 
 	}
-	// TODO
+
 	// Wait until the store is in full consensus.
 	if err := waitForConsensus(str); err != nil {
 		log.Fatalf(err.Error())
+	}
+	// Init Auth Enforce
+	if isNew && enableAuth {
+		if err := str.InitAuth(context.TODO(), rootUsername); err != nil {
+			log.Fatalf("failed to init auth: %s", err.Error())
+		}
 	}
 	// This may be a standalone server. In that case set its own metadata.
 	if err := str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {

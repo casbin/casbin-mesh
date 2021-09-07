@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	_const "github.com/casbin/casbin-mesh/pkg/const"
 	"time"
 
 	"github.com/casbin/casbin/v2"
@@ -10,6 +11,10 @@ import (
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
+)
+
+const (
+	SystemEnforce = ".system"
 )
 
 // CreateNamespace creates a new namespace.
@@ -119,6 +124,22 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 	} else {
 		return false, NamespaceNotExist
 	}
+}
+
+func (s *Store) InitAuth(ctx context.Context, rootUsername string) error {
+	// createNamespace
+	if err := s.CreateNamespace(ctx, SystemEnforce); err != nil {
+		return err
+	}
+	// setModelFromString
+	if err := s.SetModelFromString(ctx, SystemEnforce, _const.RBACModel); err != nil {
+		return err
+	}
+	// basic rules
+	if _, err := s.AddPolicies(ctx, SystemEnforce, "g", "g", _const.SystemRules); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetMetadata adds the metadata md to any existing metadata for

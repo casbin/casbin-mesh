@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
 	"log"
 	"sync"
@@ -265,17 +266,19 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 }
 
 type fsmSnapshot struct {
-	startT time.Time
-	logger *log.Logger
-	models []byte
-	state  []byte
-	meta   []byte
+	startT          time.Time
+	logger          *log.Logger
+	models          []byte
+	state           []byte
+	meta            []byte
+	credentialStore []byte
 }
 
 type persistData struct {
-	Models []byte
-	State  []byte
-	Meta   []byte
+	Models          []byte
+	State           []byte
+	Meta            []byte
+	CredentialStore []byte
 }
 
 // Persist implements persistence of states
@@ -285,9 +288,10 @@ func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	}()
 	err := func() error {
 		data, err := json.Marshal(persistData{
-			State:  f.state,
-			Models: f.models,
-			Meta:   f.meta,
+			State:           f.state,
+			Models:          f.models,
+			Meta:            f.meta,
+			CredentialStore: f.credentialStore,
 		})
 		if err != nil {
 			return err
@@ -342,6 +346,14 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 	if err != nil {
 		s.logger.Printf("failed to encode Meta: %s", err.Error())
 		return nil, err
+	}
+	if s.authCredStore != nil {
+		credStoreWriter := new(bytes.Buffer)
+		if err := s.authCredStore.Snapshot(credStoreWriter); err != nil {
+			s.logger.Println("failed to snapshot authCredStore", err)
+		} else {
+			fsm.credentialStore = credStoreWriter.Bytes()
+		}
 	}
 	return fsm, nil
 }
@@ -399,6 +411,14 @@ func (s *Store) Restore(closer io.ReadCloser) error {
 	if err != nil {
 		s.logger.Println("failed to restore enforcer ", err)
 		return err
+	}
+	if data.CredentialStore != nil {
+		s.authCredStore = auth.NewCredentialsStore()
+		err := s.authCredStore.Load(bytes.NewReader(data.CredentialStore))
+		if err != nil {
+			s.logger.Println("failed to load authCredStore ", err)
+			return err
+		}
 	}
 	return nil
 }

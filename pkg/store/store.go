@@ -5,6 +5,7 @@ import (
 	"expvar"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
 	"os"
 	"path/filepath"
@@ -97,12 +98,14 @@ const (
 
 // Store is casbin memory data, where all changes are made via Raft consensus.
 type Store struct {
-	raftDir string
-
-	raft   *raft.Raft // The consensus mechanism.
-	ln     Listener
-	raftTn *raft.NetworkTransport
-	raftID string // Node ID.
+	authCredStore *auth.CredentialsStore
+	authType      auth.AuthType
+	raftDir       string
+	rootUsername  string
+	raft          *raft.Raft // The consensus mechanism.
+	ln            Listener
+	raftTn        *raft.NetworkTransport
+	raftID        string // Node ID.
 
 	raftLog    raft.LogStore    // Persistent log store.
 	raftStable raft.StableStore // Persistent k-v store.
@@ -140,6 +143,15 @@ type Store struct {
 	numTrailingLogs uint64
 }
 
+func (s *Store) AuthType() auth.AuthType {
+	return s.authType
+}
+
+// Check validates username and password
+func (s *Store) Check(username, password string) bool {
+	return s.authCredStore.Check(username, password)
+}
+
 // IsNewNode returns whether a node using raftDir would be a brand new node.
 // It also means that the window this node joining a different cluster has passed.
 func IsNewNode(raftDir string) bool {
@@ -155,14 +167,30 @@ func New(ln Listener, c *StoreConfig) *Store {
 		logger = log.New(os.Stderr, "[store] ", log.LstdFlags)
 	}
 
-	return &Store{
+	store := &Store{
 		ln:           ln,
 		raftDir:      c.Dir,
 		raftID:       c.ID,
 		meta:         make(map[string]map[string]string),
 		logger:       logger,
 		ApplyTimeout: applyTimeout,
+		authType:     c.AuthType,
 	}
+
+	return store
+
+}
+
+// InitRoot init a root account
+func (s *Store) InitRoot(username, password string) error {
+	err := s.authCredStore.Add(username, password)
+	if err != nil {
+		return err
+	}
+	// Enforce Add default namespace for auth
+	// Setup model
+	// Write policies
+	return nil
 }
 
 // Open opens the Store. If enableBootstrap is set, then this node becomes a

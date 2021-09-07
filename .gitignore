@@ -22,3 +22,5 @@ cert_tmp
 test/_*
 test/tmp*
 bench
+.docusaurus
+node_modules
