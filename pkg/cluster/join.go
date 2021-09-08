@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io/ioutil"
 	"log"
 	"net"
@@ -27,7 +28,7 @@ var (
 // the joining node as id addr respectively. It returns the endpoint successfully
 // used to join the cluster.
 func Join(srcIP string, joinAddr []string, id, addr string, voter bool, meta map[string]string, numAttempts int,
-	attemptInterval time.Duration, tlsConfig *tls.Config) (string, error) {
+	attemptInterval time.Duration, tlsConfig *tls.Config, authConfig auth.AuthConfig) (string, error) {
 	var err error
 	var j string
 	logger := log.New(os.Stderr, "[cluster-join] ", log.LstdFlags)
@@ -37,7 +38,7 @@ func Join(srcIP string, joinAddr []string, id, addr string, voter bool, meta map
 
 	for i := 0; i < numAttempts; i++ {
 		for _, a := range joinAddr {
-			j, err = join(srcIP, a, id, addr, voter, meta, tlsConfig, logger)
+			j, err = join(srcIP, a, id, addr, voter, meta, tlsConfig, logger, authConfig)
 			if err == nil {
 				// Success!
 				return j, nil
@@ -50,7 +51,7 @@ func Join(srcIP string, joinAddr []string, id, addr string, voter bool, meta map
 	return "", ErrJoinFailed
 }
 
-func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, tlsConfig *tls.Config, logger *log.Logger) (string, error) {
+func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, tlsConfig *tls.Config, logger *log.Logger, authConfig auth.AuthConfig) (string, error) {
 	if id == "" {
 		return "", fmt.Errorf("node ID not set")
 	}
@@ -95,7 +96,16 @@ func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, 
 		}
 
 		// Attempt to join.
-		resp, err := client.Post(fullAddr, "application-type/json", bytes.NewReader(b))
+		req, err := http.NewRequest(http.MethodPost, fullAddr, bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application-type/json")
+		if err != nil {
+			return "", err
+		}
+		switch authConfig.AuthType {
+		case auth.Basic:
+			req.SetBasicAuth(authConfig.Username, authConfig.Password)
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return "", err
 		}

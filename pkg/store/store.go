@@ -149,6 +149,10 @@ func (s *Store) AuthType() auth.AuthType {
 
 // Check validates username and password
 func (s *Store) Check(username, password string) bool {
+	if s.authCredStore == nil {
+		log.Println("get authCredStore is nil")
+		return false
+	}
 	return s.authCredStore.Check(username, password)
 }
 
@@ -168,14 +172,17 @@ func New(ln Listener, c *StoreConfig) *Store {
 	}
 
 	store := &Store{
-		ln:           ln,
-		raftDir:      c.Dir,
-		raftID:       c.ID,
-		meta:         make(map[string]map[string]string),
-		logger:       logger,
-		ApplyTimeout: applyTimeout,
-		authType:     c.AuthType,
+		ln:            ln,
+		raftDir:       c.Dir,
+		raftID:        c.ID,
+		meta:          make(map[string]map[string]string),
+		logger:        logger,
+		ApplyTimeout:  applyTimeout,
+		authType:      c.AuthType,
+		authCredStore: c.CredentialsStore,
 	}
+	logger.Printf("cred store %v", c.CredentialsStore)
+	logger.Println("store is ready")
 
 	return store
 
