@@ -13,7 +13,7 @@ module.exports = {
   organizationName: 'facebook', // Usually your GitHub org/user name.
   projectName: 'Casbin Mesh', // Usually your repo name.
   i18n: {
-    defaultLocale: 'en',
+    defaultLocale: 'zh-CN',
     locales: ['en', 'zh-CN'],
   },
   themeConfig: {
