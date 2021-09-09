@@ -127,6 +127,9 @@ func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePay
 }
 
 func (s *Store) InitAuth(ctx context.Context, rootUsername string) error {
+	if !s.IsLeader() {
+		return nil
+	}
 	// createNamespace
 	if err := s.CreateNamespace(ctx, SystemEnforce); err != nil {
 		return err

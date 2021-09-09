@@ -11,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -38,8 +40,13 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 }
 
 func getBasicAuthFormContext(ctx context.Context) (username, password string, ok bool) {
-	if auth, ok := ctx.Value("Authorization").(string); ok {
-		return parseBasicAuth(auth)
+	log.Println(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", "", false
+	}
+	if auth := md.Get("authorization"); len(auth) > 0 {
+		return parseBasicAuth(auth[0])
 	}
 	return
 }
