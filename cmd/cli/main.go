@@ -24,21 +24,8 @@ func action(ctx *cli.Context) error {
 }
 
 func main() {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 	c := NewClient("localhost:4002")
-=======
-	c := NewClient("127.0.0.1:4004")
->>>>>>> Stashed changes
 	ctx := NewCtx(c)
-=======
-	c := NewClient("127.0.0.1:4004")
-	ctx := NewCtx(c)
-	//err := ctx.LoadNamespaces()
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
->>>>>>> Stashed changes
 	p := prompt.New(
 		ctx.Executor,
 		ctx.Completer,
@@ -46,27 +33,4 @@ func main() {
 		prompt.OptionPrefix("127.0.0.1:4002 (Primary) >> "),
 	)
 	p.Run()
-<<<<<<< Updated upstream
-=======
-	//app := &cli.App{
-	//	Flags: []cli.Flag{
-	//		&cli.StringFlag{
-	//			Name:    "user",
-	//			Aliases: []string{"u"},
-	//			Usage:   "User",
-	//		},
-	//		&cli.StringFlag{
-	//			Name:    "Addr",
-	//			Aliases: []string{"addr"},
-	//			Usage:   "Host",
-	//		},
-	//	},
-	//	Action: action,
-	//}
-	//
-	//err := app.Run(os.Args)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
->>>>>>> Stashed changes
 }
