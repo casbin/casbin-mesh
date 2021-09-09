@@ -18,3 +18,9 @@ var (
 	ErrUnauthorized        = errors.New("unauthorized")
 	ErrUnsupportedAuthType = errors.New("unsupported auth type")
 )
+
+type AuthConfig struct {
+	Username string
+	Password string
+	AuthType
+}

@@ -12,4 +12,5 @@ type StoreConfig struct {
 	ID       string      // Node ID.
 	Logger   *log.Logger // The logger to use to log stuff.
 	AuthType auth.AuthType
+	*auth.CredentialsStore
 }

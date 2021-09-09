@@ -68,9 +68,9 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&enableAuth, "enable basic auth", false, "Enable Basic Auth")
-	flag.StringVar(&rootUsername, "root account username", "root", "Root Account Username")
-	flag.StringVar(&rootPassword, "root account password", "root", "Root Account Password")
+	flag.BoolVar(&enableAuth, "enable-basic", false, "Enable Basic Auth")
+	flag.StringVar(&rootUsername, "root-username", "root", "Root Account Username")
+	flag.StringVar(&rootPassword, "root-password", "root", "Root Account Password")
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
 	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address")
 	flag.StringVar(&raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
@@ -174,13 +174,22 @@ func main() {
 	}
 
 	authType := auth.Noop
+	var credentialsStore *auth.CredentialsStore
 	if enableAuth {
+		log.Println("auth type basic")
 		authType = auth.Basic
+		credentialsStore = auth.NewCredentialsStore()
+		err = credentialsStore.Add(rootUsername, rootPassword)
+		if err != nil {
+			log.Fatalf("failed to init credentialsStore:%s", err.Error())
+		}
 	}
+
 	str := store.New(raftLn, &store.StoreConfig{
-		Dir:      dataPath,
-		ID:       idOrRaftAddr(),
-		AuthType: authType,
+		Dir:              dataPath,
+		ID:               idOrRaftAddr(),
+		AuthType:         authType,
+		CredentialsStore: credentialsStore,
 	})
 
 	// Set optional parameters on store.
@@ -282,7 +291,7 @@ func main() {
 		}
 
 		if j, err := cluster.Join(joinSrcIP, joins, str.ID(), advAddr, !raftNonVoter, meta,
-			joinAttempts, joinDur, &tlsConfig); err != nil {
+			joinAttempts, joinDur, &tlsConfig, auth.AuthConfig{AuthType: authType, Username: rootUsername, Password: rootPassword}); err != nil {
 			log.Fatalf("failed to join cluster at %s: %s", joins, err.Error())
 		} else {
 			log.Println("successfully joined cluster at", j)
@@ -297,7 +306,7 @@ func main() {
 	// Init Auth Enforce
 	if isNew && enableAuth {
 		if err := str.InitAuth(context.TODO(), rootUsername); err != nil {
-			log.Fatalf("failed to init auth: %s", err.Error())
+			log.Printf("failed to init auth: %s", err.Error())
 		}
 	}
 	// This may be a standalone server. In that case set its own metadata.
