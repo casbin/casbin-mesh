@@ -11,6 +11,7 @@ import (
 	"errors"
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
 	"log"
 	"time"
@@ -168,13 +169,26 @@ func (c client) PrintModel(ctx context.Context, namespace string) (string, error
 	return resp.Model, nil
 }
 
-func NewClient(target string) *client {
+type options struct {
+	target   string
+	authType AuthType
+	username string
+	password string
+}
+
+func NewClient(op options) *client {
 	var opts []grpc.DialOption
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	opts = append(opts, grpc.WithInsecure())
 	opts = append(opts, grpc.WithBlock())
-	conn, err := grpc.DialContext(ctx, target, opts...)
+
+	switch op.authType {
+	case Basic:
+		opts = append(opts, grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(BasicAuthor(op.username, op.password))))
+	}
+
+	conn, err := grpc.DialContext(ctx, op.target, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
