@@ -15,6 +15,7 @@ require (
 	github.com/hashicorp/raft-boltdb v0.0.0-20171010151810-6e5ba93211ea
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/leodido/go-urn v1.2.1 // indirect
+	github.com/rs/cors v1.8.0 // indirect
 	github.com/soheilhy/cmux v0.1.5
 	github.com/stretchr/testify v1.6.1
 	github.com/tidwall/pretty v1.2.0
