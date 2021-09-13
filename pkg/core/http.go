@@ -49,6 +49,9 @@ func NewHttpService(core Core) *httpService {
 
 	// write
 	httpS.Handle("/create/namespace", chain(srv.autoForwardToLeader)(srv.handleCreateNameSpace))
+	httpS.Handle("/list/namespaces", chain(srv.autoForwardToLeader)(srv.handleListNamespace))
+	httpS.Handle("/print/model", chain(srv.autoForwardToLeader)(srv.handlePrintModel))
+	httpS.Handle("/list/policies", chain(srv.autoForwardToLeader)(srv.handleListPolicies))
 	httpS.Handle("/set/model", chain(srv.autoForwardToLeader)(srv.handleSetModelFromString))
 	httpS.Handle("/add/policies", chain(srv.autoForwardToLeader)(srv.handleAddPolicies))
 	httpS.Handle("/remove/policies", chain(srv.autoForwardToLeader)(srv.handleRemovePolicies))
@@ -272,6 +275,46 @@ func (s *httpService) handleClearPolicy(ctx *http.Context) (err error) {
 	}
 	ctx.StatusCode(http2.StatusOK)
 	return
+}
+
+type ListPoliciesRequest struct {
+	NS string `json:"ns" validate:"required"`
+}
+
+func (s *httpService) handleListPolicies(ctx *http.Context) error {
+	var request ListPoliciesRequest
+	if err := s.decode(ctx.Request.Body, &request); err != nil {
+		return err
+	}
+	out, err := s.ListPolicies(context.TODO(), request.NS)
+	if err != nil {
+		return err
+	}
+	return ctx.StatusCode(http2.StatusOK).JSON(out)
+}
+
+type PrintModelRequest struct {
+	NS string `json:"ns" validate:"required"`
+}
+
+func (s *httpService) handlePrintModel(ctx *http.Context) error {
+	var request PrintModelRequest
+	if err := s.decode(ctx.Request.Body, &request); err != nil {
+		return err
+	}
+	out, err := s.PrintModel(context.TODO(), request.NS)
+	if err != nil {
+		return err
+	}
+	return ctx.StatusCode(http2.StatusOK).JSON(out)
+}
+
+func (s *httpService) handleListNamespace(ctx *http.Context) error {
+	out, err := s.ListNamespaces(context.TODO())
+	if err != nil {
+		return err
+	}
+	return ctx.StatusCode(http2.StatusOK).JSON(out)
 }
 
 func (s *httpService) handleStats(ctx *http.Context) error {
