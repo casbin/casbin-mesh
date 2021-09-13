@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/rs/cors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -391,8 +392,9 @@ func waitForConsensus(str *store.Store) error {
 
 func startHTTPService(c core.Core, ln net.Listener) error {
 	httpd := core.NewHttpService(c)
+	handler := cors.AllowAll().Handler(httpd)
 	go func() {
-		err := http.Serve(ln, httpd)
+		err := http.Serve(ln, handler)
 		if err != nil {
 			log.Println("HTTP service Serve() returned:", err.Error())
 		}
