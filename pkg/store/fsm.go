@@ -79,15 +79,19 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	case command.Type_COMMAND_TYPE_LIST_POLICIES:
 		ns := cmd.Namespace
 		var policies [][]string
-		err := s.enforcersState.View(func(tx *adapter.Tx) error {
-			bucket := tx.Bucket([]byte(ns))
-			if bucket == nil {
-				return errors.New("bucket is empty")
+		var payload command.ListPoliciesPayload
+		if cmd.Payload != nil {
+			err := proto.Unmarshal(cmd.Payload, &payload)
+			if err != nil {
+				return &ListPoliciesResponse{error: UnmarshalFailed}
 			}
-			return bucket.ForEach(func(k, v []byte) error {
-				policies = append(policies, []string{string(k), string(v)})
-				return nil
-			})
+		} else {
+			//default value
+			payload.Limit = 1000
+		}
+		err = s.enforcersState.View(func(tx *adapter.Tx) error {
+			policies, err = tx.Bucket([]byte(ns)).List(payload.Cursor, payload.Skip, payload.Limit, payload.Reverse)
+			return err
 		})
 		if err != nil {
 			return &ListPoliciesResponse{error: StateTransactionFailed}
