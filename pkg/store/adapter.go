@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-
+	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
@@ -159,4 +159,33 @@ func (s *Store) ClearPolicy(ctx context.Context, ns string) error {
 	}
 	r := f.Response().(*FSMResponse)
 	return r.error
+}
+
+type ListPoliciesOptions struct {
+	Cursor  string
+	Limit   int64
+	Skip    int64
+	Reverse bool
+}
+
+var defaultListPoliciesOptions = ListPoliciesOptions{
+	Limit: 1000,
+}
+
+// Policies list policies
+func (s *Store) Policies(ctx context.Context, ns string, options *ListPoliciesOptions) ([][]string, error) {
+	if options == nil {
+		options = &defaultListPoliciesOptions
+	}
+	var (
+		policies [][]string
+		err      error
+	)
+	err = s.enforcersState.View(func(tx *adapter.Tx) error {
+		bucket := tx.Bucket([]byte(ns))
+		policies, err = bucket.List(options.Cursor, options.Skip, options.Limit, options.Reverse)
+		return err
+	})
+	return policies, err
+
 }

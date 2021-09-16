@@ -33,6 +33,13 @@ message ListPoliciesRequest{
   string namespace = 2;
 }
 
+message ListPoliciesPayload {
+  string cursor =1;
+  int64 skip = 2;
+  int64 limit = 3;
+  bool reverse = 4;
+}
+
 message ListPoliciesResponse{
   map<string,string> metadata =1;
   repeated StringArray policies = 2;

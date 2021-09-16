@@ -134,7 +134,7 @@ func (s grpcServer) PrintModel(ctx context.Context, req *command.PrintModelReque
 }
 
 func (s grpcServer) ListPolicies(ctx context.Context, req *command.ListPoliciesRequest) (*command.ListPoliciesResponse, error) {
-	policies, err := s.Core.ListPolicies(ctx, req.Namespace)
+	policies, err := s.Core.ListPolicies(ctx, req.Namespace, "", 0, 1000, false)
 	if err != nil {
 		return nil, err
 	}

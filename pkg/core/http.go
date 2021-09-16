@@ -278,7 +278,11 @@ func (s *httpService) handleClearPolicy(ctx *http.Context) (err error) {
 }
 
 type ListPoliciesRequest struct {
-	NS string `json:"ns" validate:"required"`
+	NS      string `json:"ns" validate:"required"`
+	Cursor  string `json:"cursor"`
+	Skip    int64  `json:"skip"`
+	Limit   int64  `json:"limit"`
+	Reverse bool   `json:"reverse"`
 }
 
 func (s *httpService) handleListPolicies(ctx *http.Context) error {
@@ -286,7 +290,7 @@ func (s *httpService) handleListPolicies(ctx *http.Context) error {
 	if err := s.decode(ctx.Request.Body, &request); err != nil {
 		return err
 	}
-	out, err := s.ListPolicies(context.TODO(), request.NS)
+	out, err := s.ListPolicies(context.TODO(), request.NS, request.Cursor, request.Skip, request.Limit, request.Reverse)
 	if err != nil {
 		return err
 	}

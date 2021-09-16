@@ -101,12 +101,52 @@ func (tx *Tx) Bucket(name []byte) *Bucket {
 	return &Bucket{conn: tx.conn, namespace: name, txn: tx.txn}
 }
 
+func (bucket *Bucket) List(cursor string, skip int64, limit int64, reverse bool) ([][]string, error) {
+	var out [][]string
+	err := bucket.conn.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.IteratorOptions{
+			PrefetchValues: true,
+			PrefetchSize:   100,
+			AllVersions:    false,
+			Reverse:        reverse,
+		})
+		defer it.Close()
+		var value []byte
+		bucketPrefix := bucket.withPrefix([]byte(""))
+		prefix := bucket.withPrefix([]byte(cursor))
+		count := int64(0)
+		for it.Seek(prefix); it.Valid(); it.Next() {
+			if skip > count {
+				count++
+				continue
+			}
+			item := it.Item()
+			k := item.Key()
+			value, err := item.ValueCopy(value)
+			if err != nil {
+				return err
+			}
+			out = append(out, []string{string(k[len(bucketPrefix):]), string(value)})
+			// remove prefix
+			//if err := fn(k[len(prefix):], value); err != nil {
+			//	return err
+			//}
+			count++
+			if count > limit+skip-1 {
+				break
+			}
+		}
+		return nil
+	})
+	return out, err
+}
+
 func (bucket *Bucket) ForEach(fn func(key []byte, value []byte) error) error {
 	return bucket.conn.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
 		var value []byte
-		prefix := append(prefixPolicies, bucket.namespace...)
+		prefix := bucket.withPrefix([]byte(""))
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
 			k := item.Key()

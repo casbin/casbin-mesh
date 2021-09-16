@@ -33,10 +33,15 @@ type ListPoliciesResponse struct {
 	error
 }
 
-func (s *Store) ListPolicies(ctx context.Context, namespace string) ([][]string, error) {
+func (s *Store) ListPolicies(ctx context.Context, namespace, cursor string, skip, limit int64, reverse bool) ([][]string, error) {
+	payload, err := proto.Marshal(&command.ListPoliciesPayload{Cursor: cursor, Skip: skip, Limit: limit, Reverse: reverse})
+	if err != nil {
+		return nil, err
+	}
 	cmd, err := proto.Marshal(&command.Command{
 		Type:      command.Type_COMMAND_TYPE_LIST_POLICIES,
 		Namespace: namespace,
+		Payload:   payload,
 	})
 	if err != nil {
 		return nil, err

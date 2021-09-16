@@ -15,8 +15,8 @@ func (s core) ListNamespaces(ctx context.Context) ([]string, error) {
 	return s.store.ListNamespace(ctx)
 }
 
-func (s core) ListPolicies(ctx context.Context, namespace string) ([][]string, error) {
-	return s.store.ListPolicies(ctx, namespace)
+func (s core) ListPolicies(ctx context.Context, namespace ,cursor string,skip,limit int64,reverse bool) ([][]string, error) {
+	return s.store.ListPolicies(ctx, namespace,cursor,skip,limit,reverse)
 }
 
 func (s core) PrintModel(ctx context.Context, namespace string) (string, error) {
@@ -112,7 +112,7 @@ type Core interface {
 	LeaderAPIProto() string
 	LeaderAPIAddr() string
 	ListNamespaces(ctx context.Context) ([]string, error)
-	ListPolicies(ctx context.Context, namespace string) ([][]string, error)
+	ListPolicies(ctx context.Context, namespace ,cursor string,skip,limit int64,reverse bool) ([][]string, error)
 	PrintModel(ctx context.Context, namespace string) (string, error)
 	IsLeader(ctx context.Context) bool
 	LeaderAddr(ctx context.Context) string
