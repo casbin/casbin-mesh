@@ -1,0 +1,29 @@
+version: '3'
+services:
+  node0:
+    build: .
+    entrypoint: /root/casbin_mesh
+    command: >
+       -node-id node0 -enable-basic -endpoint-no-verify
+    ports:
+      - "4001"
+    volumes:
+      - ./store/casbin/data:/casbin_mesh/data
+  node1:
+    build: .
+    entrypoint: /root/casbin_mesh
+    command: >
+      -node-id node1 -enable-basic -join http://node0:4001 -endpoint-no-verify
+    ports:
+      - "4001"
+    volumes:
+      - ./store/casbin/data:/casbin_mesh/data
+  node2:
+    build: .
+    entrypoint: /root/casbin_mesh
+    command: >
+      -node-id node2 -enable-basic -join http://node0:4001 -endpoint-no-verify
+    ports:
+      - "4001"
+    volumes:
+      - ./store/etcd3/data:/casbin_mesh/data
