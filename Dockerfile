@@ -9,6 +9,11 @@ RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w"
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
+
+RUN apk update -v \
+    && apk add bash \
+    && apk upgrade -v --no-cache
+
 WORKDIR /root
 COPY --from=builder /root/build/casbin_mesh ./
 
@@ -17,6 +22,7 @@ RUN mkdir -p /casbin_mesh/file
 VOLUME /casbin_mesh/data
 
 COPY ./docker-entrypoint.sh ./
+RUN chmod +x /root/docker-entrypoint.sh
 ENTRYPOINT ["/root/docker-entrypoint.sh"]
 
 EXPOSE 4001

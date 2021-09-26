@@ -1,29 +1,44 @@
 version: '3'
 services:
   node0:
-    build: .
-    entrypoint: /root/casbin_mesh
+    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
     command: >
-       -node-id node0 -enable-basic -endpoint-no-verify
+      -node-id node0
+      -enable-basic
+      -raft-address 0.0.0.0:4001
+      -raft-advertise-address node0:4001
+      -endpoint-no-verify
     ports:
-      - "4001"
+      - "4001:4001"
     volumes:
-      - ./store/casbin/data:/casbin_mesh/data
+      - ./store/casbin/node1:/casbin_mesh/data
   node1:
-    build: .
-    entrypoint: /root/casbin_mesh
+    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
     command: >
-      -node-id node1 -enable-basic -join http://node0:4001 -endpoint-no-verify
+      -node-id node1
+      -enable-basic
+      -raft-address 0.0.0.0:4001
+      -raft-advertise-address node1:4001
+      -join http://node0:4001
+      -endpoint-no-verify
     ports:
-      - "4001"
+      - "4003:4001"
     volumes:
-      - ./store/casbin/data:/casbin_mesh/data
+      - ./store/casbin/node2:/casbin_mesh/data
+    depends_on:
+      - node0
   node2:
-    build: .
-    entrypoint: /root/casbin_mesh
+    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
     command: >
-      -node-id node2 -enable-basic -join http://node0:4001 -endpoint-no-verify
+      -node-id node2
+      -enable-basic
+      -raft-address 0.0.0.0:4001
+      -raft-advertise-address node2:4001
+      -join http://node0:4001
+      -endpoint-no-verify
     ports:
-      - "4001"
+      - "4005:4001"
     volumes:
-      - ./store/etcd3/data:/casbin_mesh/data
+      - ./store/casbin/node3:/casbin_mesh/data
+    depends_on:
+      - node0
