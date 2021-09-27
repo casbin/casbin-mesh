@@ -343,7 +343,7 @@ func RaftRPCMatcher() cmux.Matcher {
 		br := bufio.NewReader(&io.LimitedReader{R: r, N: 1})
 		byt, err := br.ReadByte()
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("Raft RPC Unmatched incoming: %s\n", err)
 			return false
 		}
 		switch byt {
