@@ -25,6 +25,6 @@ COPY ./docker-entrypoint.sh ./
 RUN chmod +x /root/docker-entrypoint.sh
 ENTRYPOINT ["/root/docker-entrypoint.sh"]
 
-EXPOSE 4001
+EXPOSE 4002
 
-CMD ["/root/casbin_mesh", "-raft-address", "0.0.0.0:4001", "/casbin_mesh/data/data"]
+CMD ["/root/casbin_mesh", "-raft-address", "0.0.0.0:4002", "/casbin_mesh/data/data"]

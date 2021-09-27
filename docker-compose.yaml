@@ -1,43 +1,43 @@
 version: '3'
 services:
   node0:
-    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
+    image: ghcr.io/wenyxu/casbin-mesh:latest
     command: >
       -node-id node0
       -enable-basic
-      -raft-address 0.0.0.0:4001
-      -raft-advertise-address node0:4001
+      -raft-address 0.0.0.0:4002
+      -raft-advertise-address node0:4002
       -endpoint-no-verify
     ports:
-      - "4001:4001"
+      - "4002:4002"
     volumes:
       - ./store/casbin/node1:/casbin_mesh/data
   node1:
-    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
+    image: ghcr.io/wenyxu/casbin-mesh:latest
     command: >
       -node-id node1
       -enable-basic
-      -raft-address 0.0.0.0:4001
-      -raft-advertise-address node1:4001
-      -join http://node0:4001
+      -raft-address 0.0.0.0:4002
+      -raft-advertise-address node1:4002
+      -join http://node0:4002
       -endpoint-no-verify
     ports:
-      - "4003:4001"
+      - "4004:4002"
     volumes:
       - ./store/casbin/node2:/casbin_mesh/data
     depends_on:
       - node0
   node2:
-    image: ghcr.io/wenyxu/casbin-mesh:v0.0.6
+    image: ghcr.io/wenyxu/casbin-mesh:latest
     command: >
       -node-id node2
       -enable-basic
-      -raft-address 0.0.0.0:4001
-      -raft-advertise-address node2:4001
-      -join http://node0:4001
+      -raft-address 0.0.0.0:4002
+      -raft-advertise-address node2:4002
+      -join http://node0:4002
       -endpoint-no-verify
     ports:
-      - "4005:4001"
+      - "4006:4002"
     volumes:
       - ./store/casbin/node3:/casbin_mesh/data
     depends_on:
