@@ -7,9 +7,22 @@ import (
 	"time"
 )
 
+type Addr struct {
+	Hostname string
+}
+
+func (addr Addr) Network() string {
+	return "tcp"
+}
+
+func (addr Addr) String() string {
+	return addr.Hostname
+}
+
 // Transport is the network layer for inter-node communications.
 type Transport struct {
-	ln net.Listener
+	ln      net.Listener
+	advAddr Addr
 
 	certFile        string // Path to local X.509 cert.
 	certKey         string // Path to corresponding X.509 key.
@@ -34,8 +47,8 @@ func NewTLSTransport(certFile, keyPath string, skipVerify bool) *Transport {
 }
 
 // NewTransportFromListener returns an initialized Transport
-func NewTransportFromListener(ln net.Listener, remoteEncrypted bool, skipVerify bool) *Transport {
-	return &Transport{ln: ln, remoteEncrypted: remoteEncrypted, skipVerify: skipVerify}
+func NewTransportFromListener(ln net.Listener, remoteEncrypted bool, skipVerify bool, addr string) *Transport {
+	return &Transport{ln: ln, remoteEncrypted: remoteEncrypted, skipVerify: skipVerify, advAddr: Addr{Hostname: addr}}
 }
 
 // Open opens the transport, binding to the supplied address.
@@ -102,7 +115,7 @@ func (t *Transport) Close() error {
 
 // Addr returns the binding address of the transport.
 func (t *Transport) Addr() net.Addr {
-	return t.ln.Addr()
+	return t.advAddr
 }
 
 // createTLSConfig returns a TLS config from the given cert and key.

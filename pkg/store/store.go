@@ -264,7 +264,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 	}
 
 	if enableBootstrap {
-		s.logger.Printf("executing new cluster bootstrap")
+		s.logger.Printf("executing new cluster bootstrap, addr:%s", s.raftTn.LocalAddr())
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
 				{

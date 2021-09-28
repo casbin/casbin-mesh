@@ -134,6 +134,11 @@ func main() {
 	// Start requested profiling.
 	startProfile(cpuProfile, memProfile)
 
+	advAddr := raftAddr
+	if raftAdv != "" {
+		advAddr = raftAdv
+	}
+
 	// Create internode network layer.
 	var ln net.Listener
 	if encrypt {
@@ -163,9 +168,9 @@ func main() {
 	go mux.Serve()
 	var raftLn *tcp.Transport
 	if encrypt {
-		raftLn = tcp.NewTransportFromListener(raftLnBase, true, noVerify)
+		raftLn = tcp.NewTransportFromListener(raftLnBase, true, noVerify, advAddr)
 	} else {
-		raftLn = tcp.NewTransportFromListener(raftLnBase, false, false)
+		raftLn = tcp.NewTransportFromListener(raftLnBase, false, false, advAddr)
 	}
 
 	// Create and open the store.

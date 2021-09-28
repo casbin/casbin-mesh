@@ -66,10 +66,10 @@ func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, 
 		dialer = &net.Dialer{LocalAddr: netAddr}
 	}
 	// Join using IP address, as that is what Hashicorp Raft works in.
-	resv, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		return "", err
-	}
+	//resv, err := net.ResolveTCPAddr("tcp", addr)
+	//if err != nil {
+	//	return "", err
+	//}
 
 	// Check for protocol scheme, and insert default if necessary.
 	fullAddr := utils.NormalizeAddr(fmt.Sprintf("%s/join", joinAddr))
@@ -87,7 +87,7 @@ func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, 
 	for {
 		b, err := json.Marshal(map[string]interface{}{
 			"id":    id,
-			"addr":  resv.String(),
+			"addr":  addr,
 			"voter": voter,
 			"meta":  meta,
 		})
