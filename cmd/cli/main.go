@@ -18,6 +18,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/c-bata/go-prompt"
 )
 
@@ -40,18 +41,25 @@ import (
 //}
 
 func main() {
+	host := GetHost()
+	authType := GetAuthType()
+	var name, pwd string
+	if authType == "Basic" {
+		name = GetUsername()
+		pwd = GetPWD()
+	}
 	c := NewClient(options{
-		target:   "localhost:4002",
+		target:   host,
 		authType: Basic,
-		username: "root",
-		password: "root",
+		username: name,
+		password: pwd,
 	})
 	ctx := NewCtx(c)
 	p := prompt.New(
 		ctx.Executor,
 		ctx.Completer,
 		prompt.OptionCompletionOnDown(),
-		prompt.OptionPrefix("127.0.0.1:4002 (Primary) >> "),
+		prompt.OptionPrefix(fmt.Sprintf("%s >> ", host)),
 	)
 	p.Run()
 }
