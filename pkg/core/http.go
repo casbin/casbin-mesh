@@ -104,6 +104,8 @@ func (s *httpService) autoForwardToLeader(fn http.HandlerFunc) http.HandlerFunc 
 			if err != nil {
 				return err
 			}
+			c.ResponseWriter.Header().Del("Vary")
+			c.ResponseWriter.Header().Del("Access-Control-Allow-Origin")
 			httputil.NewSingleHostReverseProxy(remote).ServeHTTP(c.ResponseWriter, c.Request)
 		}
 		return nil
