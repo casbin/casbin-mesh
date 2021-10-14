@@ -18,17 +18,16 @@
 package core
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/auth"
-	"io"
-	http2 "net/http"
-	"net/http/httputil"
-	url2 "net/url"
-
 	"github.com/casbin/casbin-mesh/pkg/handler/http"
 	"github.com/go-playground/validator"
 	"golang.org/x/net/context"
+	"io"
+	"io/ioutil"
+	http2 "net/http"
 )
 
 type httpService struct {
@@ -99,14 +98,39 @@ func (s *httpService) autoForwardToLeader(fn http.HandlerFunc) http.HandlerFunc 
 		if s.IsLeader(context.TODO()) {
 			return fn(c)
 		} else {
-			urlStr := fmt.Sprintf("%s://%s", s.LeaderAPIProto(), s.LeaderAPIAddr())
-			remote, err := url2.Parse(urlStr)
-			if err != nil {
-				return err
+			schema := "http"
+			if c.Request.TLS != nil {
+				schema = "https"
 			}
 			c.ResponseWriter.Header().Del("Vary")
 			c.ResponseWriter.Header().Del("Access-Control-Allow-Origin")
-			httputil.NewSingleHostReverseProxy(remote).ServeHTTP(c.ResponseWriter, c.Request)
+
+			body, err := ioutil.ReadAll(c.Request.Body)
+			if err != nil {
+				http2.Error(c.ResponseWriter, err.Error(), http2.StatusInternalServerError)
+			}
+			url := fmt.Sprintf("%s://%s%s", schema, s.LeaderAddr(), c.Request.RequestURI)
+			proxyReq, err := http2.NewRequest(c.Request.Method, url, bytes.NewReader(body))
+
+			// clone the header
+			proxyReq.Header = make(http2.Header)
+			for h, val := range c.Request.Header {
+				proxyReq.Header[h] = val
+			}
+
+			// forward the incoming request to leader
+			resp, err := http2.DefaultClient.Do(proxyReq)
+			if err != nil {
+				http2.Error(c.ResponseWriter, err.Error(), http2.StatusBadGateway)
+				return nil
+			}
+			// copy the response
+			_, err = io.Copy(c.ResponseWriter, resp.Body)
+			if err != nil {
+				fmt.Printf("Copy failed:%s", err)
+				return err
+			}
+			defer resp.Body.Close()
 		}
 		return nil
 	}

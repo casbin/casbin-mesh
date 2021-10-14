@@ -32,8 +32,8 @@ func (s core) ListNamespaces(ctx context.Context) ([]string, error) {
 	return s.store.ListNamespace(ctx)
 }
 
-func (s core) ListPolicies(ctx context.Context, namespace ,cursor string,skip,limit int64,reverse bool) ([][]string, error) {
-	return s.store.ListPolicies(ctx, namespace,cursor,skip,limit,reverse)
+func (s core) ListPolicies(ctx context.Context, namespace, cursor string, skip, limit int64, reverse bool) ([][]string, error) {
+	return s.store.ListPolicies(ctx, namespace, cursor, skip, limit, reverse)
 }
 
 func (s core) PrintModel(ctx context.Context, namespace string) (string, error) {
@@ -88,17 +88,13 @@ func (s core) IsLeader(ctx context.Context) bool {
 	return s.store.IsLeader()
 }
 
-func (s core) LeaderAddr(ctx context.Context) string {
+func (s core) LeaderAddr() string {
 	return s.store.LeaderAddr()
 }
 
 // LeaderAPIAddr returns the API address of the leader, as known by this node.
 func (s core) LeaderAPIAddr() string {
-	id, err := s.store.LeaderID()
-	if err != nil {
-		return ""
-	}
-	return s.store.Metadata(id, "api_addr")
+	return s.store.LeaderAddr()
 }
 
 // LeaderAPIProto returns the protocol used by the leader, as known by this node.
@@ -126,13 +122,11 @@ func (s core) AuthType() auth.AuthType {
 type Core interface {
 	AuthType() auth.AuthType
 	Check(username string, password string) bool
-	LeaderAPIProto() string
-	LeaderAPIAddr() string
 	ListNamespaces(ctx context.Context) ([]string, error)
-	ListPolicies(ctx context.Context, namespace ,cursor string,skip,limit int64,reverse bool) ([][]string, error)
+	ListPolicies(ctx context.Context, namespace, cursor string, skip, limit int64, reverse bool) ([][]string, error)
 	PrintModel(ctx context.Context, namespace string) (string, error)
 	IsLeader(ctx context.Context) bool
-	LeaderAddr(ctx context.Context) string
+	LeaderAddr() string
 	Stats(ctx context.Context) (map[string]interface{}, error)
 	CreateNamespace(ctx context.Context, ns string) error
 	SetModelFromString(ctx context.Context, ns string, text string) error
