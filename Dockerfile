@@ -4,7 +4,7 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 RUN go mod download
 COPY . .
-RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casbin_mesh cmd/app/main.go
+RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casmesh cmd/app/main.go
 
 
 FROM alpine:latest
@@ -15,11 +15,11 @@ RUN apk update -v \
     && apk upgrade -v --no-cache
 
 WORKDIR /root
-COPY --from=builder /root/build/casbin_mesh ./
+COPY --from=builder /root/build/casmesh ./
 
-RUN mkdir -p /casbin_mesh/file
+RUN mkdir -p /casmesh/file
 
-VOLUME /casbin_mesh/data
+VOLUME /casmesh/data
 
 COPY ./docker-entrypoint.sh ./
 RUN chmod +x /root/docker-entrypoint.sh
@@ -27,4 +27,4 @@ ENTRYPOINT ["/root/docker-entrypoint.sh"]
 
 EXPOSE 4002
 
-CMD ["/root/casbin_mesh", "-raft-address", "0.0.0.0:4002", "/casbin_mesh/data/data"]
+CMD ["/root/casmesh", "-raft-address", "0.0.0.0:4002", "/casmesh/data/data"]
