@@ -46,9 +46,8 @@ import (
 	"github.com/soheilhy/cmux"
 )
 
-const name = `Casbin-mesh`
-const desc = `casbin-mesh is a lightweight, distributed casbin service, which uses casbin as its
-engine.`
+const name = `casmesh`
+const desc = `casmesh is a lightweight, distributed casbin service, which uses casbin as its engine.`
 
 var (
 	enableAuth             bool
@@ -120,7 +119,7 @@ func init() {
 	flag.StringVar(&memProfile, "mem-profile", "", "Path to file for memory profiling information")
 
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "\n%s\n\n", desc)
+		fmt.Fprintf(os.Stderr, "%s\n\n", desc)
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] <data directory>\n", name)
 		flag.PrintDefaults()
 	}
