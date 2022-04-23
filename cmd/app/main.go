@@ -89,7 +89,7 @@ func init() {
 	flag.StringVar(&rootUsername, "root-username", "root", "Root Account Username")
 	flag.StringVar(&rootPassword, "root-password", "root", "Root Account Password")
 	flag.StringVar(&nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
-	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address")
+	flag.StringVar(&raftAddr, "raft-address", "localhost:4002", "Raft communication bind address, supports multiple addresses by commas")
 	flag.StringVar(&raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
 	flag.StringVar(&joinSrcIP, "join-source-ip", "", "Set source IP address during Join request")
 	flag.BoolVar(&encrypt, "tls-encrypt", false, "Enable encryption")
@@ -150,30 +150,44 @@ func main() {
 	// Start requested profiling.
 	startProfile(cpuProfile, memProfile)
 
-	advAddr := raftAddr
+	listenerAddresses := strings.Split(raftAddr, ",")
+	if len(listenerAddresses) == 0 {
+		log.Fatal("fatal: raft-address cannot empty")
+	}
+
+	advAddr := listenerAddresses[0]
 	if raftAdv != "" {
 		advAddr = raftAdv
 	}
 
 	// Create internode network layer.
-	var ln net.Listener
-	if encrypt {
-		log.Printf("enabling encryption with cert: %s, key: %s", x509Cert, x509Key)
-		cfg, err := tcp.CreateTLSConfig(x509Cert, x509Key)
-		if err != nil {
-			log.Fatalf("failed to create tls config: %s", err.Error())
-		}
-		ln, err = tls.Listen("tcp", raftAddr, cfg)
-		if err != nil {
-			log.Fatalf("failed to open internode network layer: %s", err.Error())
-		}
-	} else {
-		var err error
-		ln, err = net.Listen("tcp", raftAddr)
-		if err != nil {
-			log.Fatalf("failed to open internode network layer: %s", err.Error())
+	var lns []net.Listener
+	for _, address := range listenerAddresses {
+		if encrypt {
+			log.Printf("enabling encryption with cert: %s, key: %s", x509Cert, x509Key)
+			cfg, err := tcp.CreateTLSConfig(x509Cert, x509Key)
+			if err != nil {
+				log.Fatalf("failed to create tls config: %s", err.Error())
+			}
+			ln, err := tls.Listen("tcp", address, cfg)
+			if err != nil {
+				log.Fatalf("failed to open internode network layer: %s", err.Error())
+			}
+			lns = append(lns, ln)
+		} else {
+			ln, err := net.Listen("tcp", raftAddr)
+			if err != nil {
+				log.Fatalf("failed to open internode network layer: %s", err.Error())
+			}
+			lns = append(lns, ln)
 		}
 	}
+
+	ln, err := cluster.NewListener(lns, advAddr)
+	if err != nil {
+		log.Fatalf("failed to create cluster listener: %s", err.Error())
+	}
+
 	mux := cmux.New(ln)
 	// MATCH 1st bytes in { 0 1 2 3 }
 	raftLnBase := mux.Match(RaftRPCMatcher())
@@ -190,7 +204,7 @@ func main() {
 	}
 
 	// Create and open the store.
-	dataPath, err := filepath.Abs(dataPath)
+	dataPath, err = filepath.Abs(dataPath)
 	if err != nil {
 		log.Fatalf("failed to determine absolute data path: %s", err.Error())
 	}
