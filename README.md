@@ -50,9 +50,9 @@ $ echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
 You can easily start a single Casbin-Mesh node like:
 
 ```bash
-$ docker pull ghcr.io/casbin-mesh/casbin-mesh:latest
+$ docker pull ghcr.io/casbin/casbin-mesh:latest
 
-$ docker run -it -p 4002:4002 --name=casbin_mesh_single ghcr.io/casbin-mesh/casbin-mesh:latest
+$ docker run -it -p 4002:4002 --name=casbin_mesh_single ghcr.io/casbin/casbin-mesh:latest
 ```
 
 ### Binary
@@ -75,7 +75,7 @@ docker-compose.yml
 version: "3"
 services:
   node0:
-    image: ghcr.io/casbin-mesh/casbin-mesh:latest
+    image: ghcr.io/casbin/casbin-mesh:latest
     command: >
       -node-id node0
       -raft-address 0.0.0.0:4002
@@ -86,7 +86,7 @@ services:
     volumes:
       - ./store/casbin/node1:/casmesh/data
   node1:
-    image: ghcr.io/casbin-mesh/casbin-mesh:latest
+    image: ghcr.io/casbin/casbin-mesh:latest
     command: >
       -node-id node1
       -raft-address 0.0.0.0:4002
@@ -100,7 +100,7 @@ services:
     depends_on:
       - node0
   node2:
-    image: ghcr.io/casbin-mesh/casbin-mesh:latest
+    image: ghcr.io/casbin/casbin-mesh:latest
     command: >
       -node-id node2
       -raft-address 0.0.0.0:4002
