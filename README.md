@@ -26,23 +26,6 @@ Casbin-Mesh is a lightweight, distributed authorization application. Casbin-Mesh
 
 # Install
 
-**Notes: Right now, even public images, require [authorization](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).**  
-Include your Token as your password and your GitHub username as your username for Docker
-
-1. Create an access token that you can use from your github account `Settings -> Developer settings -> Personal access tokens`
-2. Save your PAT as an environment variable.
-
-```bash
-$ export CR_PAT=YOUR_TOKEN
-```
-
-3. Using the CLI for your container type, sign in to the Container registry service at `ghcr.io`.
-
-```bash
-$ echo $CR_PAT | docker login ghcr.io -u USERNAME --password-stdin
-> Login Succeeded
-```
-
 ## Single Node
 
 ### Docker
