@@ -19,12 +19,14 @@ package store
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
+	"io/ioutil"
 	"log"
 	"sync"
 	"time"
@@ -302,6 +304,15 @@ type persistData struct {
 	CredentialStore []byte
 }
 
+// SnapshotHdr is used to identify the snapshot protocol version.
+// length 8 bytes
+func SnapshotHdr() []byte {
+	hdr := [8]byte{}
+	// protocol version
+	binary.LittleEndian.PutUint16(hdr[0:], uint16(1))
+	return hdr[:]
+}
+
 // Persist implements persistence of states
 func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	defer func() {
@@ -318,7 +329,7 @@ func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 			return err
 		}
 		// JSON the cluster Enforcers.
-		if _, err := sink.Write(data); err != nil {
+		if _, err := sink.Write(append(SnapshotHdr(), data...)); err != nil {
 			return err
 		}
 
@@ -383,7 +394,8 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 func (s *Store) Restore(closer io.ReadCloser) error {
 	var err error
 	var data persistData
-	err = json.NewDecoder(closer).Decode(&data)
+	snap, err := ioutil.ReadAll(closer)
+	err = json.Unmarshal(snap[8:], &data)
 	if err != nil {
 		s.logger.Println("failed to decode restore data", err)
 		return err
