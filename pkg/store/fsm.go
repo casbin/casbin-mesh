@@ -23,13 +23,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/adapter"
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io"
 	"io/ioutil"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 
 	model2 "github.com/casbin/casbin/v2/model"
 
@@ -285,7 +286,6 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 	default:
 		return &FSMResponse{error: fmt.Errorf("unhandled command: %v", cmd.Type)}
 	}
-
 }
 
 type fsmSnapshot struct {

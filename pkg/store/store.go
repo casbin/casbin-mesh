@@ -21,8 +21,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/adapter"
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
 	"os"
 	"path/filepath"
@@ -30,6 +28,9 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 
 	"github.com/golang/protobuf/proto"
 
@@ -158,6 +159,26 @@ type Store struct {
 	RaftLogLevel       string
 
 	numTrailingLogs uint64
+}
+
+// waitUntilReadable wait raft apply to readIndex
+func (s *Store) waitUntilReadable() error {
+	readIdx := s.raft.LastIndex()
+	// check no leadership transfer
+	if s.raft.VerifyLeader().Error() != nil {
+		return ErrNotLeader
+	}
+	// wait util apply to readIndex
+	done := make(chan struct{})
+	go func() {
+		for s.raft.AppliedIndex() < readIdx {
+			time.Sleep(s.HeartbeatTimeout / 10) // TODO: find a better way
+		}
+		done <- struct{}{}
+	}()
+
+	<-done
+	return nil
 }
 
 func (s *Store) AuthType() auth.AuthType {
