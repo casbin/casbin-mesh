@@ -18,10 +18,12 @@
 package store
 
 import (
+	"encoding/binary"
 	"errors"
 	"expvar"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -56,6 +58,8 @@ var (
 	// ErrInvalidBackupFormat is returned when the requested backup format
 	// is not valid.
 	ErrInvalidBackupFormat = errors.New("invalid backup format")
+	// ErrQueryReadIndex is returned when follower node try to query read index from leader fail
+	ErrQueryReadIndex = errors.New("query leader read index failed")
 )
 
 const (
@@ -122,6 +126,7 @@ type Store struct {
 	rootUsername  string
 	raft          *raft.Raft // The consensus mechanism.
 	ln            Listener
+	tcpLn         net.Listener // innode transport
 	raftTn        *raft.NetworkTransport
 	raftID        string // Node ID.
 
@@ -161,24 +166,95 @@ type Store struct {
 	numTrailingLogs uint64
 }
 
+// lastCommittedIndex get the last committed index in raft log
+func (s *Store) lastCommittedIndex() (uint64, bool) {
+	if s.State() != Leader {
+		return 0, false
+	}
+
+	readIndex := s.raft.LastIndex()
+	if s.raft.VerifyLeader().Error() != nil {
+		return 0, false // leader transfer occurs
+	}
+	return readIndex, true
+}
+
+// queryLeaderForReadIndex query read index from leader
+func (s *Store) queryLeaderForReadIndex() (uint64, bool) {
+	if s.State() == Leader {
+		return s.lastCommittedIndex()
+	}
+
+	conn, err := net.Dial("tcp", s.LeaderAddr())
+	if err != nil {
+		log.Println("dial leader addr failed", err)
+		return 0, false
+	}
+	defer conn.Close()
+	// send header
+	header := make([]byte, 1)
+	header[0] = 255
+	if _, err := conn.Write(header); err != nil {
+		log.Println("write header failed")
+		return 0, false
+	}
+	// recv readIndex
+	buf := make([]byte, 8)
+	if n, err := conn.Read(buf); err != nil || n <= 8 {
+		log.Println("last committed index read failed or truncated ")
+		return 0, false
+	}
+
+	return binary.LittleEndian.Uint64(buf), true
+}
+
+// inNodeSevice a goroutine to serve in-node transport
+func (s *Store) inNodeSevice() {
+	log.Println("start in node transport...")
+	defer s.tcpLn.Close()
+
+	handleLastCommittedIdx := func(c net.Conn) {
+		defer c.Close()
+		buf := make([]byte, 1)
+		if _, err := c.Read(buf); err != nil || buf[0] == 255 {
+			log.Println("read header failed or header mismatch")
+			return
+		}
+
+		if lci, ok := s.lastCommittedIndex(); ok {
+			buf := make([]byte, 8)
+			binary.LittleEndian.PutUint64(buf, lci)
+			if n, err := c.Write(buf); err != nil || n != 8 {
+				log.Println("last committed index write failed or truncated ")
+			}
+		}
+	}
+
+	for {
+		c, err := s.tcpLn.Accept()
+		if err != nil {
+			return
+		}
+		go handleLastCommittedIdx(c) // TODO: use a better thread model to cope with conn
+	}
+}
+
 // waitUntilReadable wait raft apply to readIndex
 func (s *Store) waitUntilReadable() error {
-	readIdx := s.raft.LastIndex()
-	// check no leadership transfer
-	if s.raft.VerifyLeader().Error() != nil {
-		return ErrNotLeader
-	}
-	// wait util apply to readIndex
-	done := make(chan struct{})
-	go func() {
-		for s.raft.AppliedIndex() < readIdx {
-			time.Sleep(s.HeartbeatTimeout / 10) // TODO: find a better way
-		}
-		done <- struct{}{}
-	}()
+	if readIdx, ok := s.queryLeaderForReadIndex(); ok {
+		// wait util apply to readIndex
+		done := make(chan struct{})
+		go func() {
+			for s.raft.AppliedIndex() < readIdx {
+				time.Sleep(s.HeartbeatTimeout / 10) // TODO: find a better way
+			}
+			done <- struct{}{}
+		}()
 
-	<-done
-	return nil
+		<-done
+		return nil
+	}
+	return ErrQueryReadIndex
 }
 
 func (s *Store) AuthType() auth.AuthType {
@@ -211,6 +287,7 @@ func New(ln Listener, c *StoreConfig) *Store {
 
 	store := &Store{
 		ln:            ln,
+		tcpLn:         c.TcpLn,
 		raftDir:       c.Dir,
 		raftID:        c.ID,
 		meta:          make(map[string]map[string]string),
@@ -318,6 +395,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 
 	s.raft = ra
 
+	go s.inNodeSevice()
 	return nil
 }
 

@@ -18,9 +18,12 @@
 package store
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,6 +32,7 @@ import (
 	"time"
 
 	"github.com/casbin/casbin-mesh/proto/command"
+	"github.com/soheilhy/cmux"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -691,10 +695,33 @@ func mustTempDir() string {
 	return path
 }
 
+func mockRaftRPCMatcher() cmux.Matcher {
+	return func(r io.Reader) bool {
+		br := bufio.NewReader(&io.LimitedReader{R: r, N: 1})
+		byt, err := br.ReadByte()
+		if err != nil {
+			log.Printf("Raft RPC Unmatched incoming: %s\n", err)
+			return false
+		}
+		switch byt {
+		case 0, 1, 2, 3:
+			return true
+		}
+		return false
+	}
+}
+
 func mustNewStoreAtPath(path string) *Store {
-	s := New(mustMockLister("localhost:0"), &StoreConfig{
-		Dir: path,
-		ID:  path, // Could be any unique string.
+	mockLn := mustMockLister("localhost:0")
+	mux := cmux.New(mockLn)
+	raftLn := &mockListener{mux.Match(mockRaftRPCMatcher())}
+	tcpLn := mux.Match(cmux.Any())
+	go mux.Serve()
+
+	s := New(raftLn, &StoreConfig{
+		Dir:   path,
+		ID:    path, // Could be any unique string.
+		TcpLn: tcpLn,
 	})
 	if s == nil {
 		panic("failed to create new store")
