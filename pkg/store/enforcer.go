@@ -19,9 +19,9 @@ package store
 
 import (
 	"context"
-	"encoding/json"
-	_const "github.com/casbin/casbin-mesh/pkg/const"
 	"time"
+
+	_const "github.com/casbin/casbin-mesh/pkg/const"
 
 	"github.com/casbin/casbin/v2"
 
@@ -88,42 +88,18 @@ func (s *Store) SetModelFromString(ctx context.Context, ns string, text string) 
 // Enforce executes enforcement.
 func (s *Store) Enforce(ctx context.Context, ns string, level command.EnforcePayload_Level, freshness int64, params ...interface{}) (bool, error) {
 	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_STRONG {
-		var B [][]byte
-		for _, p := range params {
-			b, err := json.Marshal(p)
+		if err := s.waitUntilReadable(); err != nil {
+			return false, err
+		}
+		// no need to apply read only log, handle it directly
+		if e, ok := s.enforcers.Load(ns); ok {
+			enforce := e.(*casbin.DistributedEnforcer)
+			_, err := enforce.Enforce(params...)
 			if err != nil {
 				return false, err
 			}
-			B = append(B, b)
 		}
-
-		payload, err := proto.Marshal(&command.EnforcePayload{
-			B:         B,
-			Level:     level,
-			Freshness: freshness,
-		})
-		if err != nil {
-			return false, err
-		}
-
-		cmd, err := proto.Marshal(&command.Command{
-			Type:      command.Type_COMMAND_TYPE_ENFORCE_REQUEST,
-			Namespace: ns,
-			Payload:   payload,
-			Metadata:  nil,
-		})
-		if err != nil {
-			return false, err
-		}
-		f := s.raft.Apply(cmd, s.ApplyTimeout)
-		if e := f.(raft.Future); e.Error() != nil {
-			if e.Error() == raft.ErrNotLeader {
-				return false, ErrNotLeader
-			}
-			return false, e.Error()
-		}
-		r := f.Response().(*FSMEnforceResponse)
-		return r.ok, r.error
+		return true, nil
 	}
 	if level == command.EnforcePayload_QUERY_REQUEST_LEVEL_WEAK && s.raft.State() != raft.Leader {
 		return false, ErrNotLeader

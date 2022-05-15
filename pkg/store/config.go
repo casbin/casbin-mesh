@@ -18,8 +18,10 @@
 package store
 
 import (
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
+	"net"
+
+	"github.com/casbin/casbin-mesh/pkg/auth"
 )
 
 // StoreConfig represents the configuration of the underlying Store.
@@ -31,4 +33,5 @@ type StoreConfig struct {
 	AuthType auth.AuthType
 	*auth.CredentialsStore
 	AdvAddr string
+	TcpLn   net.Listener
 }

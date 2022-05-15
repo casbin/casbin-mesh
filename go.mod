@@ -6,6 +6,8 @@ require (
 	github.com/BBVA/raft-badger v1.1.0
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/casbin/casbin/v2 v2.31.10
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/dgraph-io/badger/v3 v3.2011.1
 	github.com/erikgeiser/promptkit v0.6.0
 	github.com/go-playground/universal-translator v0.17.0 // indirect

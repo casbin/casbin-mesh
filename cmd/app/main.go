@@ -24,8 +24,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/auth"
-	"github.com/rs/cors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,6 +36,9 @@ import (
 	"runtime/pprof"
 	"strings"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/rs/cors"
 
 	"github.com/casbin/casbin-mesh/pkg/cluster"
 	"github.com/casbin/casbin-mesh/pkg/core"
@@ -195,6 +196,7 @@ func main() {
 	grpcLn := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
 	// MATCH {METHOD} {URL} HTTP/1.1
 	httpLn := mux.Match(cmux.HTTP1Fast())
+	inNodeLn := mux.Match(cmux.Any()) // for in node transport
 	go mux.Serve()
 	var raftLn *tcp.Transport
 	if encrypt {
@@ -226,6 +228,7 @@ func main() {
 		ID:               idOrRaftAddr(),
 		AuthType:         authType,
 		CredentialsStore: credentialsStore,
+		TcpLn:            inNodeLn,
 	})
 
 	// Set optional parameters on store.
