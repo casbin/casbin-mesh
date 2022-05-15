@@ -36,9 +36,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 
-	"github.com/casbin/casbin-mesh/proto/command"
-
 	rlog "github.com/casbin/casbin-mesh/pkg/log"
+	"github.com/casbin/casbin-mesh/proto/command"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/raft"
 )
 
@@ -60,6 +60,8 @@ var (
 	ErrInvalidBackupFormat = errors.New("invalid backup format")
 	// ErrQueryReadIndex is returned when follower node try to query read index from leader fail
 	ErrQueryReadIndex = errors.New("query leader read index failed")
+	// ErrNotReadable is returned when node is not read for read req
+	ErrNotReadable = errors.New("node is not readable")
 )
 
 const (
@@ -243,17 +245,20 @@ func (s *Store) inNodeSevice() {
 func (s *Store) waitUntilReadable() error {
 	if readIdx, ok := s.queryLeaderForReadIndex(); ok {
 		// wait util apply to readIndex
-		done := make(chan struct{})
+		done := make(chan error)
 		go func() {
-			for s.raft.AppliedIndex() < readIdx {
-				time.Sleep(s.HeartbeatTimeout / 10) // TODO: find a better way
-			}
-			done <- struct{}{}
-		}()
+			err := backoff.Retry(func() error {
+				if s.raft.AppliedIndex() < readIdx {
+					return ErrNotReadable
+				}
+				return nil
+			}, backoff.WithMaxRetries(backoff.NewConstantBackOff(s.HeartbeatTimeout/10), 3))
 
-		<-done
-		return nil
+			done <- err // nil if success
+		}()
+		return <-done
 	}
+
 	return ErrQueryReadIndex
 }
 
