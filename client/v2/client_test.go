@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package main
+package client
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	c *client
+	c *Client
 )
 
 func TestMain(m *testing.M) {
