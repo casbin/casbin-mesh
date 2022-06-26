@@ -20,6 +20,7 @@ package main
 import (
 	"fmt"
 	"github.com/c-bata/go-prompt"
+	"github.com/casbin/casbin-mesh/client/v2"
 )
 
 //func completer(d prompt.Document) []prompt.Suggest {
@@ -48,11 +49,11 @@ func main() {
 		name = GetUsername()
 		pwd = GetPWD()
 	}
-	c := NewClient(options{
-		target:   host,
-		authType: Basic,
-		username: name,
-		password: pwd,
+	c := client.NewClient(client.Options{
+		Target:   host,
+		AuthType: client.Basic,
+		Username: name,
+		Password: pwd,
 	})
 	ctx := NewCtx(c)
 	p := prompt.New(

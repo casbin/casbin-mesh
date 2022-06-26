@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/c-bata/go-prompt"
+	"github.com/casbin/casbin-mesh/client/v2"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/tidwall/pretty"
 	"log"
@@ -84,7 +85,7 @@ func updateOperationsRemove(slice [][]CasbinRule, s int) [][]CasbinRule {
 }
 
 type ctx struct {
-	*client
+	*client.Client
 	transaction string
 	//can be "g" or "p"
 	sec              string
@@ -107,9 +108,9 @@ func (c *ctx) LoadNamespaces() error {
 	return nil
 }
 
-func NewCtx(c *client) *ctx {
+func NewCtx(c *client.Client) *ctx {
 	return &ctx{
-		client: c,
+		Client: c,
 	}
 }
 
@@ -270,7 +271,7 @@ func (c *ctx) Executor(line string) {
 		ptype := c.ptype
 		switch c.transaction {
 		case "add":
-			policies, err := c.client.AddPolicies(context.TODO(), ns, sec, ptype, c.operations.to2DString())
+			policies, err := c.Client.AddPolicies(context.TODO(), ns, sec, ptype, c.operations.to2DString())
 			if err != nil {
 				fmt.Printf("Commit failed:%s", err.Error())
 				return
@@ -289,7 +290,7 @@ func (c *ctx) Executor(line string) {
 			}
 		case "update":
 			o, n := c.updateOperations.to2DString()
-			effected, err := c.client.UpdatePolicies(context.TODO(), ns, sec, ptype, o, n)
+			effected, err := c.Client.UpdatePolicies(context.TODO(), ns, sec, ptype, o, n)
 			if err != nil {
 				fmt.Printf("Commit failed:%s", err.Error())
 				return
@@ -302,7 +303,7 @@ func (c *ctx) Executor(line string) {
 				fmt.Printf("No effected rules! <%s>\n", elapsed)
 			}
 		case "remove":
-			policies, err := c.client.RemovePolicies(context.TODO(), ns, sec, ptype, c.operations.to2DString())
+			policies, err := c.Client.RemovePolicies(context.TODO(), ns, sec, ptype, c.operations.to2DString())
 			if err != nil {
 				fmt.Printf("Commit failed:%s", err.Error())
 				return
