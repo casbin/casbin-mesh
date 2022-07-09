@@ -57,7 +57,7 @@ type Config struct {
 	dataPath               string
 }
 
-func parseFlags() (cfg *Config) {
+func parseFlags() (cfg Config) {
 	flag.BoolVar(&cfg.enableAuth, "enable-basic", false, "Enable Basic Auth")
 	flag.StringVar(&cfg.rootUsername, "root-username", "root", "Root Account Username")
 	flag.StringVar(&cfg.rootPassword, "root-password", "root", "Root Account Password")

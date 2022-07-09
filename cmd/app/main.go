@@ -28,7 +28,7 @@ const desc = `casmesh is a lightweight, distributed casbin service, which uses c
 func main() {
 	cfg := parseFlags()
 
-	closer := New(cfg)
+	closer := New(&cfg)
 
 	// Block until signalled.
 	terminate := make(chan os.Signal, 1)
