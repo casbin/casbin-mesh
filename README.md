@@ -155,9 +155,9 @@ The response:
 ["test"]
 ```
 
-### Add Polices
+### Add Policies
 
-Let's add policies for the `test` namespace. See more of [Polcies]()
+Let's add policies for the `test` namespace. See more of [Policies]()
 
 ```bash
 $ curl --location --request GET 'http://localhost:4002/add/policies' \
@@ -203,6 +203,59 @@ The answer is yes:
 ```
 
 # Documentation
+
+## APIs Overview
+
+### HTTP Endpoints
+
+HTTP endpoints for managing the namespaces and policies in casbin-mesh:
+
+- /create/namespace: to create a new namespace.
+- /list/namespaces: to list all existing namespaces.
+- /print/model: to print the model for a given namespace.
+- /list/policies: to list all policies for a given namespace.
+- /set/model: to set the model for a given namespace.
+- /add/policies: to add policies to a given namespace.
+- /remove/policies: to remove policies from a given namespace.
+- /remove/filtered_policies: to remove policies matching a filter from a given namespace.
+- /update/policies: to update policies in a given namespace.
+- /clear/policy: to clear all policies from a given namespace.
+- /enforce: to enforce a policy for a given namespace.
+- /stats: to get statistics for a given namespace.
+
+### gRPC Endpoints
+
+gRPC endpoints for managing the namespaces and policies in casbin-mesh:
+
+- Enforce: to enforce a policy for a given namespace.
+- CreateNamespace: to create a new namespace.
+- SetModelFromString: to set the model for a given namespace.
+- AddPolicies: to add policies to a given namespace.
+- RemovePolicies: to remove policies from a given namespace.
+- RemoveFilteredPolicy: to remove policies matching a filter from a given namespace.
+- UpdatePolicies: to update policies in a given namespace.
+- ClearPolicy: to clear all policies from a given namespace.
+- PrintModel: to print the model for a given namespace.
+- ListPolicies: to list all policies for a given namespace.
+
+### gRPC API Reference for the Command Service
+
+The casbin-mesh service has the following methods:
+
+- ShowStats: This method take a StatsRequest message and returns a StatsResponse message. It can be used to retrieve statistical information about the Casbin system.
+- ListNamespaces: This method takes a ListNamespacesRequest message and returns a ListNamespacesResponse message. It can be used to list all the namespaces in the       Casbin system.
+- PrintModel: This method takes a PrintModelRequest message and returns a PrintModelResponse message. It can be used to retrieve the model of a specific namespace in     the Casbin system.
+- ListPolicies: This method takes a ListPoliciesRequest message and returns a ListPoliciesResponse message. It can be used to list all the policies in a specific         namespace in the Casbin system.
+- Request: This method takes a Command message and returns a Response message. It can be used to send various commands to the Casbin system.
+- Enforce: This method takes an EnforceRequest message and returns an EnforceResponse message. It can be used to check if a request is authorized or not.
+- The StatsRequest, ListNamespacesRequest, PrintModelRequest, and ListPoliciesRequest messages are all empty. They only serve as a placeholder for metadata that can be   added to the request.
+- The StatsResponse, PrintModelResponse, and ListPoliciesResponse messages all contain a payload field that can be used to pass back additional information.
+- The ListNamespacesResponse message contains a list of namespaces in the namespace field.
+- The Command message is used to send various commands to the Casbin system. It has a type field that specifies the type of command being sent, a namespace field that   specifies the namespace the command should be applied to, a payload field that contains additional data for the command, and a metadata field that can be used to       pass metadata along with the command.
+- The EnforceRequest message is used to request authorization for a specific action. It has a namespace field that specifies the namespace to check the authorization     in, an enforce_payload field that contains the details of the request, and a metadata field that can be used to pass metadata along with the request.
+- The EnforceResponse message is used to respond to an EnforceRequest. It has an ok field that specifies if the request is authorized or not.
+
+
 
 All documents were located in [docs](/docs) directory.
 
