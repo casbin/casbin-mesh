@@ -26,6 +26,9 @@ const name = `casmesh`
 const desc = `casmesh is a lightweight, distributed casbin service, which uses casbin as its engine.`
 
 func main() {
+		parsedFlasgs :=parseFlasgs()
+		app:=NewApp(parsedFlags)
+	 
 	cfg := parseFlags()
 
 	closer := New(&cfg)
@@ -36,3 +39,6 @@ func main() {
 	<-terminate
 	closer()
 }
+func TestXXX_XXXX(t *testing.T){
+	app:=NewApp(parsedFlags)
+ }
