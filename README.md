@@ -130,7 +130,7 @@ $ curl --location --request GET 'http://localhost:4002/create/namespace' \
 
 ### Set an RBAC model for the test namespace
 
-To setup an Casbin model for a specific namespace, executes following request on `/set/model` endpoint. See all supported [models](https://casbin.org/docs/en/supported-models).
+To setup an Casbin model for a specific namespace, executes following request on `/set/model` endpoint. See all supported [models](https://casbin.org/docs/supported-models).
 
 ```bash
 $ curl --location --request GET 'http://localhost:4002/set/model' \
@@ -157,7 +157,7 @@ The response:
 
 ### Add Policies
 
-Let's add policies for the `test` namespace. See more of [Policies]()
+Let's add policies for the `test` namespace. See more of [Policies](https://casbin.org/docs/supported-models)
 
 ```bash
 $ curl --location --request GET 'http://localhost:4002/add/policies' \
@@ -257,7 +257,7 @@ The casbin-mesh service has the following methods:
 
 
 
-All documents were located in [docs](/docs) directory.
+All documents were located in [docs](https://mesh.casbin.org/docs/guide/getting-started) directory.
 
 # License
 
