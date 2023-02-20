@@ -102,6 +102,13 @@ services:
 $ docker-compose up
 ```
 
+### Helm
+You can start a three node Casbin-Mesh cluster on Kubernetes using [Helm](https://helm.sh/):
+```bash
+Helm install <cluster-name> --set replicaCount=3 ./chart
+```
+The Casbin-Mesh nodes will be exposed on service `<cluster-name>-casbin-mesh:4002`
+
 ### Binary
 
 ```bash
