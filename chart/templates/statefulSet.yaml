@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "casbin-mesh.fullname" . }}
+  labels:
+    {{- include "casbin-mesh.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "casbin-mesh.fullname" . }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "casbin-mesh.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "casbin-mesh.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "casbin-mesh.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+          - bash
+          - "-c"
+          - |
+            [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+            ordinal=${BASH_REMATCH[1]}
+
+            # ${ordinal} now holds the replica number
+
+            if [[ $ordinal -eq 0 ]]; then
+              /root/casmesh -raft-address 0.0.0.0:{{ .Values.service.port }} \
+              -raft-advertise-address {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
+              /casmesh/data/data
+            else
+              /root/casmesh -raft-address 0.0.0.0:{{ .Values.service.port }} \
+              -raft-advertise-address {{ include "casbin-mesh.fullname" . }}-${ordinal}.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
+              -join {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} /casmesh/data/data
+            fi
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
