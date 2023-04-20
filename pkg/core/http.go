@@ -268,7 +268,7 @@ type RemoveFilteredPolicyRequest struct {
 	NS          string   `json:"ns" validate:"required"`
 	Sec         string   `json:"sec" validate:"required"`
 	PType       string   `json:"ptype" validate:"required"`
-	FieldIndex  int32    `json:"fieldIndex" validate:"required"`
+	FieldIndex  *int32   `json:"fieldIndex" validate:"required"`
 	FieldValues []string `json:"fieldValues" validate:"required"`
 }
 
@@ -278,7 +278,7 @@ func (s *httpService) handleRemoveFilteredPolicy(ctx *http.Context) (err error) 
 		return
 	}
 	var rules [][]string
-	if rules, err = s.RemoveFilteredPolicy(context.TODO(), request.NS, request.Sec, request.PType, request.FieldIndex, request.FieldValues); err != nil {
+	if rules, err = s.RemoveFilteredPolicy(context.TODO(), request.NS, request.Sec, request.PType, *request.FieldIndex, request.FieldValues); err != nil {
 		return
 	}
 	return ctx.StatusCode(http2.StatusOK).JSON(Response{EffectedRules: rules})
