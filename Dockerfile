@@ -10,7 +10,8 @@ RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w"
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
 
-RUN apk update -v \
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/' /etc/apk/repositories \
+    && apk update -v \
     && apk add bash \
     && apk upgrade -v --no-cache
 
