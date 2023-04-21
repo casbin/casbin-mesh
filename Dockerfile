@@ -2,9 +2,9 @@ FROM golang:1.17.1-alpine as builder
 WORKDIR /root
 COPY ./go.mod ./
 COPY ./go.sum ./
-RUN go mod download
+RUN go env -w GOPROXY=https://goproxy.cn,direct && go mod download
 COPY . .
-RUN go env -w GOPROXY=https://goproxy.cn,direct && export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casmesh cmd/app/*.go
+RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casmesh cmd/app/*.go
 
 
 FROM alpine:latest
