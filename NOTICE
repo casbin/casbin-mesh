@@ -1,0 +1,8 @@
+Casbin Mesh
+Copyright 2021-2023 The Casbin Mesh Authors.
+
+This product includes code from the rqlite project (https://github.com/rqlite/rqlite):
+* Licensed under the MIT License
+* Copyright (c) Philip O'Toole (http://www.philipotoole.com) 2015 - 2021
+* Copyright (c) rqlite contributors 2015 - 2021
+* Copyright (c) Google 2018 - 2021
