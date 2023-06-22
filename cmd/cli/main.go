@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/c-bata/go-prompt"
 	"github.com/casbin/casbin-mesh/client/v2"
 )

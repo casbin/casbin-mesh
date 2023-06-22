@@ -17,12 +17,13 @@ package cluster
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/auth"
 )
 
 const numAttempts int = 3

@@ -16,9 +16,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/erikgeiser/promptkit/selection"
 	"github.com/erikgeiser/promptkit/textinput"
-	"os"
 )
 
 const customTemplate = `

@@ -18,10 +18,11 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"strings"
+
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	"github.com/dgraph-io/badger/v3"
-	"strings"
 )
 
 // CasbinRule represents a Casbin rule line.

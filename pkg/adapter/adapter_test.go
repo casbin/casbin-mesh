@@ -15,13 +15,14 @@
 package adapter
 
 import (
+	"io/ioutil"
+	"os"
+	"testing"
+
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
-	"io/ioutil"
-	"os"
-	"testing"
 )
 
 const testDB = "test.db"

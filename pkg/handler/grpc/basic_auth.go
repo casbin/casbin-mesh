@@ -19,11 +19,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 	"log"
 	"net/http"
 	"strings"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 var ErrUnauthorized = errors.New("unauthorized")

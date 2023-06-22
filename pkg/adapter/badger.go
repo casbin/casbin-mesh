@@ -15,8 +15,9 @@
 package adapter
 
 import (
-	"github.com/dgraph-io/badger/v3"
 	"time"
+
+	"github.com/dgraph-io/badger/v3"
 
 	"io"
 	"log"

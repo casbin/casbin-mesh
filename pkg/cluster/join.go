@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"io/ioutil"
 	"log"
 	"net"
@@ -28,6 +27,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/auth"
 
 	"github.com/casbin/casbin-mesh/pkg/utils"
 )

@@ -15,9 +15,10 @@
 package main
 
 import (
-	"github.com/jedib0t/go-pretty/v6/table"
 	"os"
 	"strings"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 )
 
 // CasbinRule represents a Casbin rule line.

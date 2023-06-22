@@ -18,13 +18,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	http2 "net/http"
+
 	"github.com/casbin/casbin-mesh/pkg/auth"
 	"github.com/casbin/casbin-mesh/pkg/handler/http"
 	"github.com/go-playground/validator"
 	"golang.org/x/net/context"
-	"io"
-	"io/ioutil"
-	http2 "net/http"
 )
 
 type httpService struct {

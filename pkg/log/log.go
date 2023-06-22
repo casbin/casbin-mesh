@@ -16,6 +16,7 @@ package log
 
 import (
 	"fmt"
+
 	raftbadgerdb "github.com/BBVA/raft-badger"
 	"github.com/hashicorp/raft"
 )

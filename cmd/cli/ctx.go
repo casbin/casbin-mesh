@@ -18,15 +18,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/c-bata/go-prompt"
-	"github.com/casbin/casbin-mesh/client/v2"
-	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/tidwall/pretty"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/c-bata/go-prompt"
+	"github.com/casbin/casbin-mesh/client/v2"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/tidwall/pretty"
 )
 
 type Context interface {

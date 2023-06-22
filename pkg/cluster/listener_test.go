@@ -15,10 +15,11 @@
 package cluster
 
 import (
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/nettest"
 	"net"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/nettest"
 )
 
 func TestListener(t *testing.T) {

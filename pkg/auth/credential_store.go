@@ -17,8 +17,9 @@ package auth
 import (
 	"encoding/json"
 	"errors"
-	"golang.org/x/crypto/bcrypt"
 	"io"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // BasicAuthProvider is the interface an object must support to return basic auth information.

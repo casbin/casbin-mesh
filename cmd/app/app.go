@@ -20,13 +20,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/auth"
-	"github.com/casbin/casbin-mesh/pkg/cluster"
-	"github.com/casbin/casbin-mesh/pkg/core"
-	"github.com/casbin/casbin-mesh/pkg/store"
-	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
-	"github.com/rs/cors"
-	"github.com/soheilhy/cmux"
 	"io"
 	"io/ioutil"
 	"log"
@@ -38,6 +31,14 @@ import (
 	"runtime/pprof"
 	"strings"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/pkg/cluster"
+	"github.com/casbin/casbin-mesh/pkg/core"
+	"github.com/casbin/casbin-mesh/pkg/store"
+	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
+	"github.com/rs/cors"
+	"github.com/soheilhy/cmux"
 )
 
 func New(cfg *Config) (close func() error) {

@@ -18,12 +18,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
+	"time"
+
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"
-	"log"
-	"time"
 )
 
 type Client struct {

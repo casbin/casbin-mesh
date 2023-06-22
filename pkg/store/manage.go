@@ -16,6 +16,7 @@ package store
 
 import (
 	"context"
+
 	"github.com/casbin/casbin-mesh/proto/command"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"

@@ -18,8 +18,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/casbin/casbin-mesh/pkg/adapter"
-	"github.com/casbin/casbin-mesh/pkg/auth"
 	"log"
 	"os"
 	"path/filepath"
@@ -27,6 +25,9 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/casbin/casbin-mesh/pkg/adapter"
+	"github.com/casbin/casbin-mesh/pkg/auth"
 
 	"github.com/golang/protobuf/proto"
 
