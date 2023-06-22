@@ -11,3 +11,11 @@ license-format:
 .PHONY: format
 format: license-format
 	goimports -w $(GOFILES)
+
+.PHONY: .install.goimports
+.install.goimports:
+	go install golang.org/x/tools/cmd/goimports@latest
+
+.PHONY: .install.go-license
+.install.go-license:
+	go install github.com/palantir/go-license@v1.26.0
