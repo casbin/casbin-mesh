@@ -19,9 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
-	grpc2 "github.com/casbin/casbin-mesh/pkg/handler/grpc"
 	"github.com/casbin/casbin-mesh/proto/command"
+	"github.com/casbin/casbin-mesh/server/auth"
+	grpc2 "github.com/casbin/casbin-mesh/server/handler/grpc"
 	_ "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"google.golang.org/grpc"

@@ -22,8 +22,8 @@ import (
 	"io/ioutil"
 	http2 "net/http"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
-	"github.com/casbin/casbin-mesh/pkg/handler/http"
+	"github.com/casbin/casbin-mesh/server/auth"
+	"github.com/casbin/casbin-mesh/server/handler/http"
 	"github.com/go-playground/validator"
 	"golang.org/x/net/context"
 )

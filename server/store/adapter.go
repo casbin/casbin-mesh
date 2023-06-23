@@ -17,8 +17,8 @@ package store
 import (
 	"context"
 
-	"github.com/casbin/casbin-mesh/pkg/adapter"
 	"github.com/casbin/casbin-mesh/proto/command"
+	"github.com/casbin/casbin-mesh/server/adapter"
 	"github.com/golang/protobuf/proto"
 	"github.com/hashicorp/raft"
 )

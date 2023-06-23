@@ -32,11 +32,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
-	"github.com/casbin/casbin-mesh/pkg/cluster"
-	"github.com/casbin/casbin-mesh/pkg/core"
-	"github.com/casbin/casbin-mesh/pkg/store"
-	"github.com/casbin/casbin-mesh/pkg/transport/tcp"
+	"github.com/casbin/casbin-mesh/server/auth"
+	"github.com/casbin/casbin-mesh/server/cluster"
+	"github.com/casbin/casbin-mesh/server/core"
+	"github.com/casbin/casbin-mesh/server/store"
+	"github.com/casbin/casbin-mesh/server/transport/tcp"
 	"github.com/rs/cors"
 	"github.com/soheilhy/cmux"
 )

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/server/auth"
 )
 
 const numAttempts int = 3

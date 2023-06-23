@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"time"
 
-	_const "github.com/casbin/casbin-mesh/pkg/const"
+	_const "github.com/casbin/casbin-mesh/server/const"
 
 	"github.com/casbin/casbin/v2"
 

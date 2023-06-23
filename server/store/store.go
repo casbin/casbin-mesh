@@ -26,14 +26,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/casbin/casbin-mesh/pkg/adapter"
-	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/server/adapter"
+	"github.com/casbin/casbin-mesh/server/auth"
 
 	"github.com/golang/protobuf/proto"
 
 	"github.com/casbin/casbin-mesh/proto/command"
 
-	rlog "github.com/casbin/casbin-mesh/pkg/log"
+	rlog "github.com/casbin/casbin-mesh/server/log"
 	"github.com/hashicorp/raft"
 )
 

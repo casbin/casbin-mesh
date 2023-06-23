@@ -28,9 +28,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/server/auth"
 
-	"github.com/casbin/casbin-mesh/pkg/utils"
+	"github.com/casbin/casbin-mesh/server/utils"
 )
 
 var (

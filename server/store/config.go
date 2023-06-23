@@ -17,7 +17,7 @@ package store
 import (
 	"log"
 
-	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/server/auth"
 )
 
 // StoreConfig represents the configuration of the underlying Store.

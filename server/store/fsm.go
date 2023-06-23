@@ -26,8 +26,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/casbin/casbin-mesh/pkg/adapter"
-	"github.com/casbin/casbin-mesh/pkg/auth"
+	"github.com/casbin/casbin-mesh/server/adapter"
+	"github.com/casbin/casbin-mesh/server/auth"
 
 	model2 "github.com/casbin/casbin/v2/model"
 
