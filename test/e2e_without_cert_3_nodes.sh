@@ -1,6 +1,6 @@
 #!/bin/bash
 
-go build -o ./tmp/casmesh ../cmd/app/*
+go build -o ./tmp/casmesh ../cmd/server/*
 
 ./tmp/casmesh -node-id node0 -raft-address localhost:4002 -raft-advertise-address localhost:4002 -enable-basic -endpoint-no-verify _1 &
 sleep 3

@@ -4,7 +4,7 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 RUN go mod download
 COPY . .
-RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casmesh cmd/app/*.go
+RUN export GO111MODULE=on && CGO_ENABLED=0 GOOS=linux go build  -ldflags "-s -w" -o build/casmesh cmd/server/*.go
 
 
 FROM alpine:latest
