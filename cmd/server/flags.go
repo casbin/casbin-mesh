@@ -55,6 +55,7 @@ type Config struct {
 	memProfile             string
 	encrypt                bool
 	dataPath               string
+	configPath             string
 }
 
 func parseFlags() (cfg Config) {
@@ -90,6 +91,7 @@ func parseFlags() (cfg Config) {
 	flag.IntVar(&cfg.compressionBatch, "compression-batch", 5, "Request batch threshold for compression attempt")
 	flag.StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
 	flag.StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
+	flag.StringVar(&cfg.configPath, "config", "", "Path to a configuration file")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "%s\n\n", desc)

@@ -1,0 +1,59 @@
+raft:
+  id: node01
+  address: 0.0.0.0:5202
+  advertiseAddress: null
+
+  tls:
+    enabled: false
+    caFile: ca.pem
+    certFile: server.pem
+    keyFile: server-key.pem
+    authType: RequireAndVerifyClientCert
+
+  authentication:
+    enabled: false
+    providers:
+      basic:
+        file: raft-htpasswd
+
+  client:
+    tls:
+      caFile: ca.pem
+      certFile: server.pem
+      keyFile: server-key.pem
+    authentication:
+      authType: null
+      parameter: null
+
+api:
+  address: 0.0.0.0:5200
+  advertiseAddress: null
+  protocols:
+    http: true
+    grpc: false
+
+  tls:
+    enabled: false
+    caFile: ca.pem
+    certFile: server.pem
+    keyFile: server-key.pem
+    authType: RequireAndVerifyClientCert
+
+  authentication:
+    enabled: false
+    providers:
+      basic:
+        file: api-htpasswd
+
+  client:
+    tls:
+      caFile: ca.pem
+      certFile: server.pem
+      keyFile: server-key.pem
+    authentication:
+      authType: null
+      parameter: null
+
+pprof:
+  enabled: false
+  address: null

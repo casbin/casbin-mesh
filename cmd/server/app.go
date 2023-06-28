@@ -39,6 +39,7 @@ import (
 	"github.com/casbin/casbin-mesh/server/transport/tcp"
 	"github.com/rs/cors"
 	"github.com/soheilhy/cmux"
+	"gopkg.in/yaml.v3"
 )
 
 func New(cfg *Config) (close func() error) {
@@ -48,6 +49,19 @@ func New(cfg *Config) (close func() error) {
 	log.SetPrefix(fmt.Sprintf("[%s] ", name))
 	log.Printf("%s, target architecture is %s, operating system target is %s", runtime.Version(), runtime.GOARCH, runtime.GOOS)
 	log.Printf("launch command: %s", strings.Join(os.Args, " "))
+
+	if cfg.configPath != "" {
+		configFile, err := os.ReadFile(cfg.configPath)
+		if err != nil {
+			log.Fatalf("Error reading YAML file: %v", err)
+		}
+
+		var config Config
+		err = yaml.Unmarshal(configFile, &config)
+		if err != nil {
+			log.Fatalf("Error parsing YAML: %v", err)
+		}
+	}
 
 	// Start requested profiling.
 	startProfile(cfg.cpuProfile, cfg.memProfile)
