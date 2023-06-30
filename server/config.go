@@ -46,7 +46,7 @@ type AuthDefinition struct {
 	Parameter string `yaml:"parameter"`
 }
 
-type API struct {
+type Server struct {
 	Address          string               `yaml:"address"`
 	AdvertiseAddress string               `yaml:"advertiseAddress"`
 	Protocols        Protocols            `yaml:"protocols"`
@@ -61,9 +61,9 @@ type Protocols struct {
 }
 
 type Config struct {
-	Raft  Raft  `yaml:"raft"`
-	API   API   `yaml:"api"`
-	Pprof Pprof `yaml:"pprof"`
+	Raft   Raft   `yaml:"raft"`
+	Server Server `yaml:"server"`
+	Pprof  Pprof  `yaml:"pprof"`
 }
 
 type Pprof struct {

@@ -26,7 +26,7 @@ raft:
       authType: null
       parameter: null
 
-api:
+server:
   address: 0.0.0.0:5200
   advertiseAddress: null
   protocols:
