@@ -14,7 +14,8 @@ raft:
     enabled: false
     providers:
       basic:
-        file: raft-htpasswd
+        file:
+        data:
 
   client:
     tls:
