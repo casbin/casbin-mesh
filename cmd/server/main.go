@@ -27,41 +27,44 @@ const name = `casmesh`
 const desc = `casmesh is a lightweight, distributed casbin service, which uses casbin as its engine.`
 
 type Config struct {
-	enableAuth             bool
-	rootUsername           string
-	rootPassword           string
-	raftAddr               string
-	raftAdv                string
-	joinSrcIP              string
-	x509CACert             string
-	x509Cert               string
-	x509Key                string
-	nodeID                 string
-	joinAddr               string
-	joinAttempts           int
-	joinInterval           string
-	noVerify               bool
-	pprofEnabled           bool
-	raftLogLevel           string
-	raftNonVoter           bool
-	raftSnapThreshold      uint64
-	raftSnapInterval       string
-	raftLeaderLeaseTimeout string
-	raftHeartbeatTimeout   string
-	raftElectionTimeout    string
-	raftApplyTimeout       string
-	raftOpenTimeout        string
-	raftWaitForLeader      bool
-	raftShutdownOnRemove   bool
-	compressionSize        int
-	compressionBatch       int
-	showVersion            bool
-	cpuProfile             string
-	memProfile             string
-	encrypt                bool
-	dataPath               string
-	configPath             string
-	address                string
+	enableAuth                 bool
+	rootUsername               string
+	rootPassword               string
+	raftAddr                   string
+	raftAdv                    string
+	joinSrcIP                  string
+	x509CACert                 string
+	x509Cert                   string
+	x509Key                    string
+	nodeID                     string
+	joinAddr                   string
+	joinAttempts               int
+	joinInterval               string
+	noVerify                   bool
+	pprofEnabled               bool
+	raftLogLevel               string
+	raftNonVoter               bool
+	raftSnapThreshold          uint64
+	raftSnapInterval           string
+	raftLeaderLeaseTimeout     string
+	raftHeartbeatTimeout       string
+	raftElectionTimeout        string
+	raftApplyTimeout           string
+	raftOpenTimeout            string
+	raftWaitForLeader          bool
+	raftShutdownOnRemove       bool
+	compressionSize            int
+	compressionBatch           int
+	showVersion                bool
+	cpuProfile                 string
+	memProfile                 string
+	encrypt                    bool
+	dataPath                   string
+	configPath                 string
+	serverHTTPAddress          string
+	serverHTTPAdvertiseAddress string
+	serverGRPCAddress          string
+	serverGPRCAdvertiseAddress string
 }
 
 func main() {
@@ -106,7 +109,7 @@ func main() {
 	cmd.Flags().StringVar(&cfg.rootUsername, "root-username", "root", "Root Account Username")
 	cmd.Flags().StringVar(&cfg.rootPassword, "root-password", "root", "Root Account Password")
 	cmd.Flags().StringVar(&cfg.nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
-	cmd.Flags().StringVar(&cfg.raftAddr, "raft-address", "localhost:4002", "Raft communication bind address, supports multiple addresses by commas")
+	cmd.Flags().StringVar(&cfg.raftAddr, "raft-address", "localhost:5300", "Raft communication bind address, supports multiple addresses by commas")
 	cmd.Flags().StringVar(&cfg.raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
 	cmd.Flags().StringVar(&cfg.joinSrcIP, "join-source-ip", "", "Set source IP address during Join request")
 	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
@@ -135,6 +138,10 @@ func main() {
 	cmd.Flags().StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
 	cmd.Flags().StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
 	cmd.Flags().StringVar(&cfg.configPath, "config", "", "Path to a configuration file")
+	cmd.Flags().StringVar(&cfg.serverHTTPAddress, "server-http-address", "localhost:5200", "HTTP communication bind address, supports multiple addresses by commas")
+	cmd.Flags().StringVar(&cfg.serverHTTPAdvertiseAddress, "server-http-advertise-address", "", "Advertised HTTP communication address. If not set, same as HTTP bind")
+	cmd.Flags().StringVar(&cfg.serverGRPCAddress, "server-grpc-address", "localhost:5201", "gRPC communication bind address, supports multiple addresses by commas")
+	cmd.Flags().StringVar(&cfg.serverGPRCAdvertiseAddress, "server-grpc-advertise-address", "", "gRPC API communication address. If not set, same as gRPC bind")
 
 	err := cmd.Execute()
 	if err != nil {

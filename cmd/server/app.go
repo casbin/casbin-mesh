@@ -66,65 +66,26 @@ func New(cfg *Config) (close func() error) {
 	// Start requested profiling.
 	startProfile(cfg.cpuProfile, cfg.memProfile)
 
-	listenerAddresses := strings.Split(cfg.raftAddr, ",")
-	if len(listenerAddresses) == 0 {
-		log.Fatal("fatal: raft-address cannot empty")
-	}
-
-	advAddr := listenerAddresses[0]
-	if cfg.raftAdv != "" {
-		advAddr = cfg.raftAdv
-	}
-
-	// Create peer communication network layer.
-	var lns []net.Listener
-	for _, address := range listenerAddresses {
-		if cfg.encrypt {
-			log.Printf("enabling encryption with cert: %s, key: %s", cfg.x509Cert, cfg.x509Key)
-			cfg, err := tcp.CreateTLSConfig(cfg.x509Cert, cfg.x509Key)
-			if err != nil {
-				log.Fatalf("failed to create tls config: %s", err.Error())
-			}
-			ln, err := tls.Listen("tcp", address, cfg)
-			if err != nil {
-				log.Fatalf("failed to open internode network layer: %s", err.Error())
-			}
-			lns = append(lns, ln)
-		} else {
-			ln, err := net.Listen("tcp", cfg.raftAddr)
-			if err != nil {
-				log.Fatalf("failed to open internode network layer: %s", err.Error())
-			}
-			lns = append(lns, ln)
-		}
-	}
-
-	ln, err := cluster.NewListener(lns, advAddr)
+	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
 	if err != nil {
-		log.Fatalf("failed to create cluster listener: %s", err.Error())
+		log.Fatalf("failed to create HTTP listener: %s", err.Error())
 	}
 
-	// ---------------------------------------------- Setup listeners ----------------------------------------------
-	mux := cmux.New(ln)
+	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
+	if err != nil {
+		log.Fatalf("failed to create gRPC listener: %s", err.Error())
+	}
 
-	// ----------------------------------------- Peer communication layer ------------------------------------------
-	// MATCH 1st bytes in { 0 1 2 3 }
-	raftLnBase := mux.Match(RaftRPCMatcher())
-	// ----------------------------------------- Peer communication layer ------------------------------------------
+	raftLn, raftAdv, err := newListener(cfg.raftAddr, cfg.raftAdv, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
+	if err != nil {
+		log.Fatalf("failed to create raft listener: %s", err.Error())
+	}
 
-	// ----------------------------------------------- Endpoint layer ----------------------------------------------
-	// MATCH ClientPreface = "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
-	grpcLn := mux.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
-	// MATCH {METHOD} {URL} HTTP/1.1
-	httpLn := mux.Match(cmux.HTTP1Fast())
-	// ----------------------------------------------- Endpoint layer ----------------------------------------------
-
-	go mux.Serve()
-	var raftLn *tcp.Transport
+	var raftTransport *tcp.Transport
 	if cfg.encrypt {
-		raftLn = tcp.NewTransportFromListener(raftLnBase, true, cfg.noVerify, advAddr)
+		raftTransport = tcp.NewTransportFromListener(raftLn, true, cfg.noVerify, raftAdv)
 	} else {
-		raftLn = tcp.NewTransportFromListener(raftLnBase, false, false, advAddr)
+		raftTransport = tcp.NewTransportFromListener(raftLn, false, false, raftAdv)
 	}
 
 	// Create and open the store.
@@ -145,7 +106,7 @@ func New(cfg *Config) (close func() error) {
 		}
 	}
 
-	str := store.New(raftLn, &store.StoreConfig{
+	str := store.New(raftTransport, &store.StoreConfig{
 		Dir:              cfg.dataPath,
 		ID:               idOrRaftAddr(cfg),
 		AuthType:         authType,
@@ -214,7 +175,7 @@ func New(cfg *Config) (close func() error) {
 	}
 
 	// Prepare metadata for join command.
-	apiAdv := cfg.raftAddr
+	apiAdv := raftAdv
 	apiProto := "http"
 	if cfg.x509Cert != "" {
 		apiProto = "https"
@@ -292,7 +253,7 @@ func New(cfg *Config) (close func() error) {
 		if err := str.Close(true); err != nil {
 			log.Printf("failed to close store: %s", err.Error())
 		}
-		mux.Close()
+		_ = httpLn.Close()
 		grpcCloser()
 		stopProfile()
 		log.Println("casbin-mesh server stopped")
@@ -432,4 +393,42 @@ func stopProfile() {
 		prof.mem.Close()
 		log.Println("memory profiling stopped")
 	}
+}
+
+func newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string) (net.Listener, string, error) {
+	listenerAddresses := strings.Split(address, ",")
+	if len(listenerAddresses) == 0 {
+		log.Fatal("fatal: bind-address cannot empty")
+	}
+
+	advAddr := listenerAddresses[0]
+	if advertiseAddress != "" {
+		advAddr = advertiseAddress
+	}
+
+	// Create peer communication network layer.
+	var lns []net.Listener
+	for _, address := range listenerAddresses {
+		if encrypt {
+			log.Printf("enabling encryption with cert: %s, key: %s", certFile, keyFile)
+			cfg, err := tcp.CreateTLSConfig(certFile, keyFile)
+			if err != nil {
+				log.Fatalf("failed to create tls config: %s", err.Error())
+			}
+			ln, err := tls.Listen("tcp", address, cfg)
+			if err != nil {
+				log.Fatalf("failed to open internode network layer: %s", err.Error())
+			}
+			lns = append(lns, ln)
+		} else {
+			ln, err := net.Listen("tcp", advAddr)
+			if err != nil {
+				log.Fatalf("failed to open internode network layer: %s", err.Error())
+			}
+			lns = append(lns, ln)
+		}
+	}
+
+	ln, err := cluster.NewListener(lns, advAddr)
+	return ln, advAddr, err
 }
