@@ -3,11 +3,11 @@ services:
   node0:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node0
-      -enable-basic
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node0:4002
-      -endpoint-no-verify
+      --node-id node0
+      --enable-basic
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node0:4002
+      --endpoint-no-verify
     ports:
       - "4002:4002"
     volumes:
@@ -15,12 +15,12 @@ services:
   node1:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node1
-      -enable-basic
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node1:4002
-      -join http://node0:4002
-      -endpoint-no-verify
+      --node-id node1
+      --enable-basic
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node1:4002
+      --join http://node0:4002
+      --endpoint-no-verify
     ports:
       - "4004:4002"
     volumes:
@@ -30,12 +30,12 @@ services:
   node2:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node2
-      -enable-basic
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node2:4002
-      -join http://node0:4002
-      -endpoint-no-verify
+      --node-id node2
+      --enable-basic
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node2:4002
+      --join http://node0:4002
+      --endpoint-no-verify
     ports:
       - "4006:4002"
     volumes:

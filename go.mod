@@ -17,10 +17,12 @@ require (
 	github.com/jedib0t/go-pretty/v6 v6.2.4
 	github.com/rs/cors v1.8.0
 	github.com/soheilhy/cmux v0.1.5
+	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/pretty v1.2.0
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	golang.org/x/net v0.0.0-20201202161906-c7110b5ffcbb
 	google.golang.org/grpc v1.47.0
 	google.golang.org/protobuf v1.27.1
+	gopkg.in/yaml.v3 v3.0.1
 )

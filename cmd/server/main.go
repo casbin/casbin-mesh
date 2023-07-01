@@ -15,21 +15,130 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
+	"runtime"
+
+	"github.com/spf13/cobra"
 )
 
 const name = `casmesh`
 const desc = `casmesh is a lightweight, distributed casbin service, which uses casbin as its engine.`
 
+type Config struct {
+	enableAuth             bool
+	rootUsername           string
+	rootPassword           string
+	raftAddr               string
+	raftAdv                string
+	joinSrcIP              string
+	x509CACert             string
+	x509Cert               string
+	x509Key                string
+	nodeID                 string
+	joinAddr               string
+	joinAttempts           int
+	joinInterval           string
+	noVerify               bool
+	pprofEnabled           bool
+	raftLogLevel           string
+	raftNonVoter           bool
+	raftSnapThreshold      uint64
+	raftSnapInterval       string
+	raftLeaderLeaseTimeout string
+	raftHeartbeatTimeout   string
+	raftElectionTimeout    string
+	raftApplyTimeout       string
+	raftOpenTimeout        string
+	raftWaitForLeader      bool
+	raftShutdownOnRemove   bool
+	compressionSize        int
+	compressionBatch       int
+	showVersion            bool
+	cpuProfile             string
+	memProfile             string
+	encrypt                bool
+	dataPath               string
+	configPath             string
+	address                string
+}
+
 func main() {
-	cfg := parseFlags()
+	cfg := Config{}
 
-	closer := New(&cfg)
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: desc,
+		Run: func(cmd *cobra.Command, args []string) {
+			if cfg.showVersion {
+				fmt.Printf("%s %s %s (compiler %s)\n", runtime.GOOS, runtime.GOARCH, runtime.Version(), runtime.Compiler)
+				os.Exit(0)
+				return
+			}
 
-	// Block until signalled.
-	terminate := make(chan os.Signal, 1)
-	signal.Notify(terminate, os.Interrupt)
-	<-terminate
-	closer()
+			if len(args) < 1 {
+				fmt.Printf("fatal: no data directory set\n")
+				os.Exit(1)
+				return
+			}
+
+			// Ensure no args come after the data directory.
+			if len(args) > 1 {
+				fmt.Printf("fatal: arguments after data directory are not accepted\n")
+				os.Exit(1)
+				return
+			}
+
+			cfg.dataPath = args[0]
+
+			closer := New(&cfg)
+
+			// Block until signalled.
+			terminate := make(chan os.Signal, 1)
+			signal.Notify(terminate, os.Interrupt)
+			<-terminate
+			_ = closer()
+		},
+	}
+
+	cmd.Flags().BoolVar(&cfg.enableAuth, "enable-basic", false, "Enable Basic Auth")
+	cmd.Flags().StringVar(&cfg.rootUsername, "root-username", "root", "Root Account Username")
+	cmd.Flags().StringVar(&cfg.rootPassword, "root-password", "root", "Root Account Password")
+	cmd.Flags().StringVar(&cfg.nodeID, "node-id", "", "Unique name for node. If not set, set to hostname")
+	cmd.Flags().StringVar(&cfg.raftAddr, "raft-address", "localhost:4002", "Raft communication bind address, supports multiple addresses by commas")
+	cmd.Flags().StringVar(&cfg.raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
+	cmd.Flags().StringVar(&cfg.joinSrcIP, "join-source-ip", "", "Set source IP address during Join request")
+	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
+	cmd.Flags().StringVar(&cfg.x509CACert, "endpoint-ca-cert", "", "Path to root X.509 certificate for API endpoint")
+	cmd.Flags().StringVar(&cfg.x509Cert, "endpoint-cert", "", "Path to X.509 certificate for API endpoint")
+	cmd.Flags().StringVar(&cfg.x509Key, "endpoint-key", "", "Path to X.509 private key for API endpoint")
+	cmd.Flags().BoolVar(&cfg.noVerify, "endpoint-no-verify", false, "Skip verification of remote HTTPS cert when joining cluster")
+	cmd.Flags().StringVar(&cfg.joinAddr, "join", "", "Comma-delimited list of nodes, through which a cluster can be joined (proto://host:port)")
+	cmd.Flags().IntVar(&cfg.joinAttempts, "join-attempts", 5, "Number of join attempts to make")
+	cmd.Flags().StringVar(&cfg.joinInterval, "join-interval", "5s", "Period between join attempts")
+	cmd.Flags().BoolVar(&cfg.pprofEnabled, "pprof", true, "Serve pprof data on API server")
+	cmd.Flags().BoolVar(&cfg.showVersion, "version", false, "Show version information and exit")
+	cmd.Flags().BoolVar(&cfg.raftNonVoter, "raft-non-voter", false, "Configure as non-voting node")
+	cmd.Flags().StringVar(&cfg.raftHeartbeatTimeout, "raft-timeout", "1s", "Raft heartbeat timeout")
+	cmd.Flags().StringVar(&cfg.raftElectionTimeout, "raft-election-timeout", "1s", "Raft election timeout")
+	cmd.Flags().StringVar(&cfg.raftApplyTimeout, "raft-apply-timeout", "10s", "Raft apply timeout")
+	cmd.Flags().StringVar(&cfg.raftOpenTimeout, "raft-open-timeout", "120s", "Time for initial Raft logs to be applied. Use 0s duration to skip wait")
+	cmd.Flags().BoolVar(&cfg.raftWaitForLeader, "raft-leader-wait", true, "Node waits for a leader before answering requests")
+	cmd.Flags().Uint64Var(&cfg.raftSnapThreshold, "raft-snap", 8192, "Number of outstanding log entries that trigger snapshot")
+	cmd.Flags().StringVar(&cfg.raftSnapInterval, "raft-snap-int", "30s", "Snapshot threshold check interval")
+	cmd.Flags().StringVar(&cfg.raftLeaderLeaseTimeout, "raft-leader-lease-timeout", "0s", "Raft leader lease timeout. Use 0s for Raft default")
+	cmd.Flags().BoolVar(&cfg.raftShutdownOnRemove, "raft-remove-shutdown", false, "Shutdown Raft if node removed")
+	cmd.Flags().StringVar(&cfg.raftLogLevel, "raft-log-level", "INFO", "Minimum log level for Raft module")
+	cmd.Flags().IntVar(&cfg.compressionSize, "compression-size", 150, "Request query size for compression attempt")
+	cmd.Flags().IntVar(&cfg.compressionBatch, "compression-batch", 5, "Request batch threshold for compression attempt")
+	cmd.Flags().StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
+	cmd.Flags().StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
+	cmd.Flags().StringVar(&cfg.configPath, "config", "", "Path to a configuration file")
+
+	err := cmd.Execute()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }

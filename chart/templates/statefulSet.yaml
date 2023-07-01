@@ -42,13 +42,13 @@ spec:
             # ${ordinal} now holds the replica number
 
             if [[ $ordinal -eq 0 ]]; then
-              /root/casmesh -raft-address 0.0.0.0:{{ .Values.service.port }} \
-              -raft-advertise-address {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
+              /root/casmesh --raft-address 0.0.0.0:{{ .Values.service.port }} \
+              --raft-advertise-address {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
               /casmesh/data/data
             else
-              /root/casmesh -raft-address 0.0.0.0:{{ .Values.service.port }} \
-              -raft-advertise-address {{ include "casbin-mesh.fullname" . }}-${ordinal}.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
-              -join {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} /casmesh/data/data
+              /root/casmesh --raft-address 0.0.0.0:{{ .Values.service.port }} \
+              --raft-advertise-address {{ include "casbin-mesh.fullname" . }}-${ordinal}.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} \
+              --join {{ include "casbin-mesh.fullname" . }}-0.{{ include "casbin-mesh.fullname" . }}.default.svc.cluster.local:{{ .Values.service.port }} /casmesh/data/data
             fi
           ports:
             - name: http

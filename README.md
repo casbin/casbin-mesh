@@ -41,7 +41,7 @@ $ docker run -it -p 4002:4002 --name=casbin_mesh_single ghcr.io/casbin/casbin-me
 ### Binary
 
 ```bash
-$ casmesh -node-id node0 ~/node1_data
+$ casmesh --node-id node0 ~/node1_data
 ```
 
 ## Cluster
@@ -60,10 +60,10 @@ services:
   node0:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node0
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node0:4002
-      -endpoint-no-verify
+      --node-id node0
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node0:4002
+      --endpoint-no-verify
     ports:
       - "4002:4002"
     volumes:
@@ -71,11 +71,11 @@ services:
   node1:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node1
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node1:4002
-      -join http://node0:4002
-      -endpoint-no-verify
+      --node-id node1
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node1:4002
+      --join http://node0:4002
+      --endpoint-no-verify
     ports:
       - "4004:4002"
     volumes:
@@ -85,11 +85,11 @@ services:
   node2:
     image: ghcr.io/casbin/casbin-mesh:latest
     command: >
-      -node-id node2
-      -raft-address 0.0.0.0:4002
-      -raft-advertise-address node2:4002
-      -join http://node0:4002
-      -endpoint-no-verify
+      --node-id node2
+      --raft-address 0.0.0.0:4002
+      --raft-advertise-address node2:4002
+      --join http://node0:4002
+      --endpoint-no-verify
     ports:
       - "4006:4002"
     volumes:
@@ -112,11 +112,11 @@ The Casbin-Mesh nodes will be exposed on service `<cluster-name>-casbin-mesh:400
 ### Binary
 
 ```bash
-$ casmesh -node-id -raft-address localhost:4002 -raft-advertise-address localhost:4002 node0 ~/node1_data
+$ casmesh --node-id --raft-address localhost:4002 --raft-advertise-address localhost:4002 node0 ~/node1_data
 
-$ casmesh -node-id -raft-address localhost:4004 -raft-advertise-address localhost:4004 node1 -join http://localhost:4002  ~/node2_data
+$ casmesh --node-id --raft-address localhost:4004 --raft-advertise-address localhost:4004 node1 --join http://localhost:4002  ~/node2_data
 
-$ casmesh -node-id -raft-address localhost:4006 -raft-advertise-address localhost:4006 node2 -join http://localhost:4002  ~/node3_data
+$ casmesh --node-id --raft-address localhost:4006 --raft-advertise-address localhost:4006 node2 --join http://localhost:4002  ~/node3_data
 ```
 
 _Notes: In practice, you should deploy nodes on different machines._
