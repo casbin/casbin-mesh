@@ -69,6 +69,10 @@ type Config struct {
 	raftKeyFile                string
 	raftCertFile               string
 	raftTLSEnabled             bool
+	serverCAFile               string
+	serverKeyFile              string
+	serverCertFile             string
+	serverTLSEnabled           bool
 }
 
 func (c *Config) getRaftCAFile() string {
@@ -94,6 +98,31 @@ func (c *Config) getRaftCertFile() string {
 
 func (c *Config) isRaftTlsEnabled() bool {
 	return c.raftTLSEnabled || c.encrypt
+}
+
+func (c *Config) getServerCAFile() string {
+	if c.serverCAFile != "" {
+		return c.serverCAFile
+	}
+	return c.x509CACert
+}
+
+func (c *Config) getServerKeyFile() string {
+	if c.serverKeyFile != "" {
+		return c.serverKeyFile
+	}
+	return c.x509Key
+}
+
+func (c *Config) getServerCertFile() string {
+	if c.serverCertFile != "" {
+		return c.serverCertFile
+	}
+	return c.x509Cert
+}
+
+func (c *Config) isServerTlsEnabled() bool {
+	return c.serverTLSEnabled || c.encrypt
 }
 
 func main() {
@@ -141,10 +170,6 @@ func main() {
 	cmd.Flags().StringVar(&cfg.raftAddr, "raft-address", "localhost:5300", "Raft communication bind address, supports multiple addresses by commas")
 	cmd.Flags().StringVar(&cfg.raftAdv, "raft-advertise-address", "", "Advertised Raft communication address. If not set, same as Raft bind")
 	cmd.Flags().StringVar(&cfg.joinSrcIP, "join-source-ip", "", "Set source IP address during Join request")
-	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
-	cmd.Flags().StringVar(&cfg.x509CACert, "endpoint-ca-cert", "", "Path to root X.509 certificate for API endpoint")
-	cmd.Flags().StringVar(&cfg.x509Cert, "endpoint-cert", "", "Path to X.509 certificate for API endpoint")
-	cmd.Flags().StringVar(&cfg.x509Key, "endpoint-key", "", "Path to X.509 private key for API endpoint")
 	cmd.Flags().BoolVar(&cfg.noVerify, "endpoint-no-verify", false, "Skip verification of remote HTTPS cert when joining cluster")
 	cmd.Flags().StringVar(&cfg.joinAddr, "join", "", "Comma-delimited list of nodes, through which a cluster can be joined (proto://host:port)")
 	cmd.Flags().IntVar(&cfg.joinAttempts, "join-attempts", 5, "Number of join attempts to make")
@@ -175,6 +200,19 @@ func main() {
 	cmd.Flags().StringVar(&cfg.raftCertFile, "raft-cert-file", "", "Path to X.509 certificate for Raft server and client")
 	cmd.Flags().StringVar(&cfg.raftKeyFile, "raft-key-file", "", "Path to X.509 private key for Raft server and client")
 	cmd.Flags().BoolVar(&cfg.raftTLSEnabled, "raft-tls-encrypt", false, "Enable TLS encryption for Raft server and client")
+	cmd.Flags().StringVar(&cfg.serverCAFile, "server-ca-file", "", "Path to root certificate for HTTP and gRPC server")
+	cmd.Flags().StringVar(&cfg.serverCertFile, "server-cert-file", "", "Path to X.509 certificate for HTTP and gRPC server")
+	cmd.Flags().StringVar(&cfg.serverKeyFile, "server-key-file", "", "Path to X.509 private key for HTTP and gRPC server")
+	cmd.Flags().BoolVar(&cfg.serverTLSEnabled, "server-tls-encrypt", false, "Enable TLS encryption for HTTP and gRPC server")
+
+	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
+	cmd.Flags().StringVar(&cfg.x509CACert, "endpoint-ca-cert", "", "Path to root X.509 certificate for API endpoint")
+	cmd.Flags().StringVar(&cfg.x509Cert, "endpoint-cert", "", "Path to X.509 certificate for API endpoint")
+	cmd.Flags().StringVar(&cfg.x509Key, "endpoint-key", "", "Path to X.509 private key for API endpoint")
+	_ = cmd.Flags().MarkDeprecated("tls-encrypt", "use --raft-tls-encrypt and --server-tls-encrypt instead")
+	_ = cmd.Flags().MarkDeprecated("endpoint-ca-cert", "use --raft-ca-file and --server-ca-file instead")
+	_ = cmd.Flags().MarkDeprecated("endpoint-cert", "use --raft-cert-file and --server-cert-file instead")
+	_ = cmd.Flags().MarkDeprecated("endpoint-key", "use --raft-key-file and --server-key-file instead")
 
 	err := cmd.Execute()
 	if err != nil {

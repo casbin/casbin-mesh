@@ -65,12 +65,12 @@ func New(cfg *Config) (close func() error) {
 	// Start requested profiling.
 	startProfile(cfg.cpuProfile, cfg.memProfile)
 
-	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert, cfg.x509CACert, tls.NoClientCert, true)
+	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create HTTP listener: %s", err.Error())
 	}
 
-	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert, cfg.x509CACert, tls.NoClientCert, true)
+	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create gRPC listener: %s", err.Error())
 	}
