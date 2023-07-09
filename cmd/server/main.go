@@ -65,6 +65,35 @@ type Config struct {
 	serverHTTPAdvertiseAddress string
 	serverGRPCAddress          string
 	serverGPRCAdvertiseAddress string
+	raftCAFile                 string
+	raftKeyFile                string
+	raftCertFile               string
+	raftTLSEnabled             bool
+}
+
+func (c *Config) getRaftCAFile() string {
+	if c.raftCAFile != "" {
+		return c.raftCAFile
+	}
+	return c.x509CACert
+}
+
+func (c *Config) getRaftKeyFile() string {
+	if c.raftKeyFile != "" {
+		return c.raftKeyFile
+	}
+	return c.x509Key
+}
+
+func (c *Config) getRaftCertFile() string {
+	if c.raftCertFile != "" {
+		return c.raftCertFile
+	}
+	return c.x509Cert
+}
+
+func (c *Config) isRaftTlsEnabled() bool {
+	return c.raftTLSEnabled || c.encrypt
 }
 
 func main() {
@@ -142,6 +171,10 @@ func main() {
 	cmd.Flags().StringVar(&cfg.serverHTTPAdvertiseAddress, "server-http-advertise-address", "", "Advertised HTTP communication address. If not set, same as HTTP bind")
 	cmd.Flags().StringVar(&cfg.serverGRPCAddress, "server-grpc-address", "localhost:5201", "gRPC communication bind address, supports multiple addresses by commas")
 	cmd.Flags().StringVar(&cfg.serverGPRCAdvertiseAddress, "server-grpc-advertise-address", "", "gRPC API communication address. If not set, same as gRPC bind")
+	cmd.Flags().StringVar(&cfg.raftCAFile, "raft-ca-file", "", "Path to root certificate for Raft server and client")
+	cmd.Flags().StringVar(&cfg.raftCertFile, "raft-cert-file", "", "Path to X.509 certificate for Raft server and client")
+	cmd.Flags().StringVar(&cfg.raftKeyFile, "raft-key-file", "", "Path to X.509 private key for Raft server and client")
+	cmd.Flags().BoolVar(&cfg.raftTLSEnabled, "raft-tls-encrypt", false, "Enable TLS encryption for Raft server and client")
 
 	err := cmd.Execute()
 	if err != nil {

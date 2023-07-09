@@ -36,7 +36,6 @@ import (
 	"github.com/casbin/casbin-mesh/server/cluster"
 	"github.com/casbin/casbin-mesh/server/core"
 	"github.com/casbin/casbin-mesh/server/store"
-	"github.com/casbin/casbin-mesh/server/transport/tcp"
 	"github.com/rs/cors"
 	"github.com/soheilhy/cmux"
 	"gopkg.in/yaml.v3"
@@ -66,27 +65,30 @@ func New(cfg *Config) (close func() error) {
 	// Start requested profiling.
 	startProfile(cfg.cpuProfile, cfg.memProfile)
 
-	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
+	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert, cfg.x509CACert, tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create HTTP listener: %s", err.Error())
 	}
 
-	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
+	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.encrypt, cfg.x509Key, cfg.x509Cert, cfg.x509CACert, tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create gRPC listener: %s", err.Error())
 	}
 
-	raftLn, raftAdv, err := newListener(cfg.raftAddr, cfg.raftAdv, cfg.encrypt, cfg.x509Key, cfg.x509Cert)
+	raftLn, raftAdv, err := newListener(cfg.raftAddr, cfg.raftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
 	if err != nil {
-		log.Fatalf("failed to create raft listener: %s", err.Error())
+		log.Fatalf("failed to create Raft listener: %s", err.Error())
 	}
 
-	var raftTransport *tcp.Transport
-	if cfg.encrypt {
-		raftTransport = tcp.NewTransportFromListener(raftLn, true, cfg.noVerify, raftAdv)
-	} else {
-		raftTransport = tcp.NewTransportFromListener(raftLn, false, false, raftAdv)
+	var raftTransport *store.TcpTransport
+	var raftTlsConfig *tls.Config
+	if cfg.isRaftTlsEnabled() {
+		raftTlsConfig, err = store.CreateTLSConfig(cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), false)
+		if err != nil {
+			log.Fatalf("failed to create TLS config of Raft: %s", err.Error())
+		}
 	}
+	raftTransport = store.NewTransportFromListener(raftLn, raftTlsConfig)
 
 	// Create and open the store.
 	cfg.dataPath, err = filepath.Abs(cfg.dataPath)
@@ -395,7 +397,7 @@ func stopProfile() {
 	}
 }
 
-func newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string) (net.Listener, string, error) {
+func newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string, caFile string, clientAuthType tls.ClientAuthType, isServer bool) (net.Listener, string, error) {
 	listenerAddresses := strings.Split(address, ",")
 	if len(listenerAddresses) == 0 {
 		log.Fatal("fatal: bind-address cannot empty")
@@ -411,10 +413,11 @@ func newListener(address string, advertiseAddress string, encrypt bool, keyFile 
 	for _, address := range listenerAddresses {
 		if encrypt {
 			log.Printf("enabling encryption with cert: %s, key: %s", certFile, keyFile)
-			cfg, err := tcp.CreateTLSConfig(certFile, keyFile)
+			cfg, err := store.CreateTLSConfig(certFile, keyFile, caFile, isServer)
 			if err != nil {
 				log.Fatalf("failed to create tls config: %s", err.Error())
 			}
+			cfg.ClientAuth = clientAuthType
 			ln, err := tls.Listen("tcp", address, cfg)
 			if err != nil {
 				log.Fatalf("failed to open internode network layer: %s", err.Error())
