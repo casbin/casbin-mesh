@@ -73,6 +73,7 @@ type Config struct {
 	serverKeyFile              string
 	serverCertFile             string
 	serverTLSEnabled           bool
+	pprofAddress               string
 }
 
 func (c *Config) getRaftCAFile() string {
@@ -174,7 +175,6 @@ func main() {
 	cmd.Flags().StringVar(&cfg.joinAddr, "join", "", "Comma-delimited list of nodes, through which a cluster can be joined (proto://host:port)")
 	cmd.Flags().IntVar(&cfg.joinAttempts, "join-attempts", 5, "Number of join attempts to make")
 	cmd.Flags().StringVar(&cfg.joinInterval, "join-interval", "5s", "Period between join attempts")
-	cmd.Flags().BoolVar(&cfg.pprofEnabled, "pprof", true, "Serve pprof data on API server")
 	cmd.Flags().BoolVar(&cfg.showVersion, "version", false, "Show version information and exit")
 	cmd.Flags().BoolVar(&cfg.raftNonVoter, "raft-non-voter", false, "Configure as non-voting node")
 	cmd.Flags().StringVar(&cfg.raftHeartbeatTimeout, "raft-timeout", "1s", "Raft heartbeat timeout")
@@ -189,8 +189,6 @@ func main() {
 	cmd.Flags().StringVar(&cfg.raftLogLevel, "raft-log-level", "INFO", "Minimum log level for Raft module")
 	cmd.Flags().IntVar(&cfg.compressionSize, "compression-size", 150, "Request query size for compression attempt")
 	cmd.Flags().IntVar(&cfg.compressionBatch, "compression-batch", 5, "Request batch threshold for compression attempt")
-	cmd.Flags().StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
-	cmd.Flags().StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
 	cmd.Flags().StringVar(&cfg.configPath, "config", "", "Path to a configuration file")
 	cmd.Flags().StringVar(&cfg.serverHTTPAddress, "server-http-address", "localhost:5200", "HTTP communication bind address, supports multiple addresses by commas")
 	cmd.Flags().StringVar(&cfg.serverHTTPAdvertiseAddress, "server-http-advertise-address", "", "Advertised HTTP communication address. If not set, same as HTTP bind")
@@ -204,7 +202,9 @@ func main() {
 	cmd.Flags().StringVar(&cfg.serverCertFile, "server-cert-file", "", "Path to X.509 certificate for HTTP and gRPC server")
 	cmd.Flags().StringVar(&cfg.serverKeyFile, "server-key-file", "", "Path to X.509 private key for HTTP and gRPC server")
 	cmd.Flags().BoolVar(&cfg.serverTLSEnabled, "server-tls-encrypt", false, "Enable TLS encryption for HTTP and gRPC server")
+	cmd.Flags().StringVar(&cfg.pprofAddress, "pprof-address", "", "Enable the pprof server on HTTP")
 
+	// tls
 	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
 	cmd.Flags().StringVar(&cfg.x509CACert, "endpoint-ca-cert", "", "Path to root X.509 certificate for API endpoint")
 	cmd.Flags().StringVar(&cfg.x509Cert, "endpoint-cert", "", "Path to X.509 certificate for API endpoint")
@@ -213,6 +213,14 @@ func main() {
 	_ = cmd.Flags().MarkDeprecated("endpoint-ca-cert", "use --raft-ca-file and --server-ca-file instead")
 	_ = cmd.Flags().MarkDeprecated("endpoint-cert", "use --raft-cert-file and --server-cert-file instead")
 	_ = cmd.Flags().MarkDeprecated("endpoint-key", "use --raft-key-file and --server-key-file instead")
+
+	// pprof
+	cmd.Flags().StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
+	cmd.Flags().StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
+	cmd.Flags().BoolVar(&cfg.pprofEnabled, "pprof", true, "Serve pprof data on API server")
+	_ = cmd.Flags().MarkDeprecated("cpu-profile", "use --pprof-address instead")
+	_ = cmd.Flags().MarkDeprecated("mem-profile", "use --pprof-address instead")
+	_ = cmd.Flags().MarkDeprecated("pprof", "use --pprof-address instead")
 
 	err := cmd.Execute()
 	if err != nil {

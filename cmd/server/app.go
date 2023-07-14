@@ -25,10 +25,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/pprof"
+	runtimePprof "runtime/pprof"
 	"strings"
 	"time"
 
@@ -60,6 +61,29 @@ func New(cfg *Config) (close func() error) {
 		if err != nil {
 			log.Fatalf("Error parsing YAML: %v", err)
 		}
+	}
+
+	var pprofLn net.Listener
+	var err error
+	if cfg.pprofAddress != "" {
+		pprofLn, err = net.Listen("tcp", cfg.pprofAddress)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go func() {
+			pprofMux := http.NewServeMux()
+			pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+			pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			log.Printf("pprof server: http://%s\n", pprofLn.Addr())
+			err = http.Serve(pprofLn, pprofMux)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}()
 	}
 
 	// Start requested profiling.
@@ -258,6 +282,9 @@ func New(cfg *Config) (close func() error) {
 		_ = httpLn.Close()
 		grpcCloser()
 		stopProfile()
+		if pprofLn != nil {
+			_ = pprofLn.Close()
+		}
 		log.Println("casbin-mesh server stopped")
 
 		return err
@@ -369,7 +396,7 @@ func startProfile(cpuprofile, memprofile string) {
 		}
 		log.Printf("writing CPU profile to: %s\n", cpuprofile)
 		prof.cpu = f
-		pprof.StartCPUProfile(prof.cpu)
+		runtimePprof.StartCPUProfile(prof.cpu)
 	}
 
 	if memprofile != "" {
@@ -386,12 +413,12 @@ func startProfile(cpuprofile, memprofile string) {
 // stopProfile closes the CPU and memory profiles if they are running.
 func stopProfile() {
 	if prof.cpu != nil {
-		pprof.StopCPUProfile()
+		runtimePprof.StopCPUProfile()
 		prof.cpu.Close()
 		log.Println("CPU profiling stopped")
 	}
 	if prof.mem != nil {
-		pprof.Lookup("heap").WriteTo(prof.mem, 0)
+		runtimePprof.Lookup("heap").WriteTo(prof.mem, 0)
 		prof.mem.Close()
 		log.Println("memory profiling stopped")
 	}
