@@ -202,7 +202,7 @@ func main() {
 	cmd.Flags().StringVar(&cfg.serverCertFile, "server-cert-file", "", "Path to X.509 certificate for HTTP and gRPC server")
 	cmd.Flags().StringVar(&cfg.serverKeyFile, "server-key-file", "", "Path to X.509 private key for HTTP and gRPC server")
 	cmd.Flags().BoolVar(&cfg.serverTLSEnabled, "server-tls-encrypt", false, "Enable TLS encryption for HTTP and gRPC server")
-	cmd.Flags().StringVar(&cfg.pprofAddress, "pprof-address", "", "Enable the pprof server on HTTP")
+	cmd.Flags().StringVar(&cfg.pprofAddress, "http-pprof", "", "Start the pprof server on HTTP")
 
 	// tls
 	cmd.Flags().BoolVar(&cfg.encrypt, "tls-encrypt", false, "Enable encryption")
@@ -218,9 +218,9 @@ func main() {
 	cmd.Flags().StringVar(&cfg.cpuProfile, "cpu-profile", "", "Path to file for CPU profiling information")
 	cmd.Flags().StringVar(&cfg.memProfile, "mem-profile", "", "Path to file for memory profiling information")
 	cmd.Flags().BoolVar(&cfg.pprofEnabled, "pprof", true, "Serve pprof data on API server")
-	_ = cmd.Flags().MarkDeprecated("cpu-profile", "use --pprof-address instead")
-	_ = cmd.Flags().MarkDeprecated("mem-profile", "use --pprof-address instead")
-	_ = cmd.Flags().MarkDeprecated("pprof", "use --pprof-address instead")
+	_ = cmd.Flags().MarkDeprecated("cpu-profile", "use --http-pprof instead")
+	_ = cmd.Flags().MarkDeprecated("mem-profile", "use --http-pprof instead")
+	_ = cmd.Flags().MarkDeprecated("pprof", "use --http-pprof instead")
 
 	err := cmd.Execute()
 	if err != nil {
