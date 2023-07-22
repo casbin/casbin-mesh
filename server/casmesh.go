@@ -1,4 +1,4 @@
-// Copyright 2022 The Casbin Mesh Authors.
+// Copyright 2023 The Casbin Mesh Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -38,20 +36,24 @@ import (
 	"github.com/casbin/casbin-mesh/server/core"
 	"github.com/casbin/casbin-mesh/server/store"
 	"github.com/rs/cors"
-	"github.com/soheilhy/cmux"
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v3"
 )
 
-func New(cfg *Config) (close func() error) {
-	// Configure logging and pump out initial message.
-	log.SetFlags(log.LstdFlags)
-	log.SetOutput(os.Stderr)
-	log.SetPrefix(fmt.Sprintf("[%s] ", name))
-	log.Printf("%s, target architecture is %s, operating system target is %s", runtime.Version(), runtime.GOARCH, runtime.GOOS)
-	log.Printf("launch command: %s", strings.Join(os.Args, " "))
+type Casmesh struct {
+	grpcd   *grpc.Server
+	str     *store.Store
+	pprofLn net.Listener
+}
 
-	if cfg.configPath != "" {
-		configFile, err := os.ReadFile(cfg.configPath)
+func NewCasmesh(cfg *CmdConfig) (*Casmesh, error) {
+	casmesh := &Casmesh{}
+
+	log.SetPrefix("[casmesh]")
+	log.Printf("%s, target architecture is %s, operating system target is %s", runtime.Version(), runtime.GOARCH, runtime.GOOS)
+
+	if cfg.ConfigPath != "" {
+		configFile, err := os.ReadFile(cfg.ConfigPath)
 		if err != nil {
 			log.Fatalf("Error reading YAML file: %v", err)
 		}
@@ -65,8 +67,8 @@ func New(cfg *Config) (close func() error) {
 
 	var pprofLn net.Listener
 	var err error
-	if cfg.pprofAddress != "" {
-		pprofLn, err = net.Listen("tcp", cfg.pprofAddress)
+	if cfg.PprofAddress != "" {
+		pprofLn, err = net.Listen("tcp", cfg.PprofAddress)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -87,19 +89,20 @@ func New(cfg *Config) (close func() error) {
 	}
 
 	// Start requested profiling.
-	startProfile(cfg.cpuProfile, cfg.memProfile)
+	startProfile(cfg.CpuProfile, cfg.MemProfile)
 
-	httpLn, _, err := newListener(cfg.serverHTTPAddress, cfg.serverHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	httpLn, _, err := newListener(cfg.ServerHTTPAddress, cfg.ServerHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create HTTP listener: %s", err.Error())
 	}
 
-	grpcLn, _, err := newListener(cfg.serverGRPCAddress, cfg.serverGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	grpcLn, _, err := newListener(cfg.ServerGRPCAddress, cfg.ServerGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create gRPC listener: %s", err.Error())
 	}
 
-	raftLn, raftAdv, err := newListener(cfg.raftAddr, cfg.raftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
+	var raftAdv string
+	raftLn, raftAdv, err := newListener(cfg.RaftAddr, cfg.RaftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
 	if err != nil {
 		log.Fatalf("failed to create Raft listener: %s", err.Error())
 	}
@@ -115,63 +118,63 @@ func New(cfg *Config) (close func() error) {
 	raftTransport = store.NewTransportFromListener(raftLn, raftTlsConfig)
 
 	// Create and open the store.
-	cfg.dataPath, err = filepath.Abs(cfg.dataPath)
+	cfg.DataPath, err = filepath.Abs(cfg.DataPath)
 	if err != nil {
 		log.Fatalf("failed to determine absolute data path: %s", err.Error())
 	}
 
 	authType := auth.Noop
 	var credentialsStore *auth.CredentialsStore
-	if cfg.enableAuth {
+	if cfg.EnableAuth {
 		log.Println("auth type basic")
 		authType = auth.Basic
 		credentialsStore = auth.NewCredentialsStore()
-		err = credentialsStore.Add(cfg.rootUsername, cfg.rootPassword)
+		err = credentialsStore.Add(cfg.RootUsername, cfg.RootPassword)
 		if err != nil {
 			log.Fatalf("failed to init credentialsStore:%s", err.Error())
 		}
 	}
 
-	str := store.New(raftTransport, &store.StoreConfig{
-		Dir:              cfg.dataPath,
+	casmesh.str = store.New(raftTransport, &store.StoreConfig{
+		Dir:              cfg.DataPath,
 		ID:               idOrRaftAddr(cfg),
 		AuthType:         authType,
 		CredentialsStore: credentialsStore,
 	})
 
 	// Set optional parameters on store.
-	str.RaftLogLevel = cfg.raftLogLevel
-	str.ShutdownOnRemove = cfg.raftShutdownOnRemove
-	str.SnapshotThreshold = cfg.raftSnapThreshold
-	str.SnapshotInterval, err = time.ParseDuration(cfg.raftSnapInterval)
+	casmesh.str.RaftLogLevel = cfg.RaftLogLevel
+	casmesh.str.ShutdownOnRemove = cfg.RaftShutdownOnRemove
+	casmesh.str.SnapshotThreshold = cfg.RaftSnapThreshold
+	casmesh.str.SnapshotInterval, err = time.ParseDuration(cfg.RaftSnapInterval)
 	if err != nil {
-		log.Fatalf("failed to parse Raft Snapsnot interval %s: %s", cfg.raftSnapInterval, err.Error())
+		log.Fatalf("failed to parse Raft Snapsnot interval %s: %s", cfg.RaftSnapInterval, err.Error())
 	}
-	str.LeaderLeaseTimeout, err = time.ParseDuration(cfg.raftLeaderLeaseTimeout)
+	casmesh.str.LeaderLeaseTimeout, err = time.ParseDuration(cfg.RaftLeaderLeaseTimeout)
 	if err != nil {
-		log.Fatalf("failed to parse Raft Leader lease timeout %s: %s", cfg.raftLeaderLeaseTimeout, err.Error())
+		log.Fatalf("failed to parse Raft Leader lease timeout %s: %s", cfg.RaftLeaderLeaseTimeout, err.Error())
 	}
-	str.HeartbeatTimeout, err = time.ParseDuration(cfg.raftHeartbeatTimeout)
+	casmesh.str.HeartbeatTimeout, err = time.ParseDuration(cfg.RaftHeartbeatTimeout)
 	if err != nil {
-		log.Fatalf("failed to parse Raft heartbeat timeout %s: %s", cfg.raftHeartbeatTimeout, err.Error())
+		log.Fatalf("failed to parse Raft heartbeat timeout %s: %s", cfg.RaftHeartbeatTimeout, err.Error())
 	}
-	str.ElectionTimeout, err = time.ParseDuration(cfg.raftElectionTimeout)
+	casmesh.str.ElectionTimeout, err = time.ParseDuration(cfg.RaftElectionTimeout)
 	if err != nil {
-		log.Fatalf("failed to parse Raft election timeout %s: %s", cfg.raftElectionTimeout, err.Error())
+		log.Fatalf("failed to parse Raft election timeout %s: %s", cfg.RaftElectionTimeout, err.Error())
 	}
-	str.ApplyTimeout, err = time.ParseDuration(cfg.raftApplyTimeout)
+	casmesh.str.ApplyTimeout, err = time.ParseDuration(cfg.RaftApplyTimeout)
 	if err != nil {
-		log.Fatalf("failed to parse Raft apply timeout %s: %s", cfg.raftApplyTimeout, err.Error())
+		log.Fatalf("failed to parse Raft apply timeout %s: %s", cfg.RaftApplyTimeout, err.Error())
 	}
 
 	// Any prexisting node state?
 	var enableBootstrap bool
-	isNew := store.IsNewNode(cfg.dataPath)
+	isNew := store.IsNewNode(cfg.DataPath)
 	if isNew {
-		log.Printf("no preexisting node state detected in %s, node may be bootstrapping", cfg.dataPath)
+		log.Printf("no preexisting node state detected in %s, node may be bootstrapping", cfg.DataPath)
 		enableBootstrap = true // New node, so we may be bootstrapping
 	} else {
-		log.Printf("preexisting node state detected in %s", cfg.dataPath)
+		log.Printf("preexisting node state detected in %s", cfg.DataPath)
 	}
 
 	// Determine join addresses
@@ -196,14 +199,14 @@ func New(cfg *Config) (close func() error) {
 	}
 
 	// Now, open store.
-	if err := str.Open(enableBootstrap); err != nil {
+	if err := casmesh.str.Open(enableBootstrap); err != nil {
 		log.Fatalf("failed to open store: %s", err.Error())
 	}
 
 	// Prepare metadata for join command.
 	apiAdv := raftAdv
 	apiProto := "http"
-	if cfg.x509Cert != "" {
+	if cfg.X509Cert != "" {
 		apiProto = "https"
 	}
 	meta := map[string]string{
@@ -214,31 +217,31 @@ func New(cfg *Config) (close func() error) {
 	// Execute any requested join operation.
 	if len(joins) > 0 && isNew {
 		log.Println("join addresses are:", joins)
-		advAddr := cfg.raftAddr
-		if cfg.raftAdv != "" {
-			advAddr = cfg.raftAdv
+		advAddr := cfg.RaftAddr
+		if cfg.RaftAdv != "" {
+			advAddr = cfg.RaftAdv
 		}
 
-		joinDur, err := time.ParseDuration(cfg.joinInterval)
+		joinDur, err := time.ParseDuration(cfg.JoinInterval)
 		if err != nil {
-			log.Fatalf("failed to parse Join interval %s: %s", cfg.joinInterval, err.Error())
+			log.Fatalf("failed to parse Join interval %s: %s", cfg.JoinInterval, err.Error())
 		}
 
-		tlsConfig := tls.Config{InsecureSkipVerify: cfg.noVerify}
-		if cfg.x509CACert != "" {
-			asn1Data, err := ioutil.ReadFile(cfg.x509CACert)
+		tlsConfig := tls.Config{InsecureSkipVerify: cfg.NoVerify}
+		if cfg.X509CACert != "" {
+			asn1Data, err := ioutil.ReadFile(cfg.X509CACert)
 			if err != nil {
 				log.Fatalf("ioutil.ReadFile failed: %s", err.Error())
 			}
 			tlsConfig.RootCAs = x509.NewCertPool()
 			ok := tlsConfig.RootCAs.AppendCertsFromPEM([]byte(asn1Data))
 			if !ok {
-				log.Fatalf("failed to parse root CA certificate(s) in %q", cfg.x509CACert)
+				log.Fatalf("failed to parse root CA certificate(s) in %q", cfg.X509CACert)
 			}
 		}
 
-		if j, err := cluster.Join(cfg.joinSrcIP, joins, str.ID(), advAddr, !cfg.raftNonVoter, meta,
-			cfg.joinAttempts, joinDur, &tlsConfig, auth.AuthConfig{AuthType: authType, Username: cfg.rootUsername, Password: cfg.rootPassword}); err != nil {
+		if j, err := cluster.Join(cfg.JoinSrcIP, joins, casmesh.str.ID(), advAddr, !cfg.RaftNonVoter, meta,
+			cfg.JoinAttempts, joinDur, &tlsConfig, auth.AuthConfig{AuthType: authType, Username: cfg.RootUsername, Password: cfg.RootPassword}); err != nil {
 			log.Fatalf("failed to join cluster at %s: %s", joins, err.Error())
 		} else {
 			log.Println("successfully joined cluster at", j)
@@ -247,89 +250,78 @@ func New(cfg *Config) (close func() error) {
 	}
 
 	// Wait until the store is in full consensus.
-	if err := waitForConsensus(str, cfg); err != nil {
+	if err := waitForConsensus(casmesh.str, cfg); err != nil {
 		log.Fatalf(err.Error())
 	}
 	// Init Auth Enforce
-	if isNew && cfg.enableAuth {
-		if err := str.InitAuth(context.TODO(), cfg.rootUsername); err != nil {
+	if isNew && cfg.EnableAuth {
+		if err := casmesh.str.InitAuth(context.TODO(), cfg.RootUsername); err != nil {
 			log.Printf("failed to init auth: %s", err.Error())
 		}
 	}
 	// This may be a standalone server. In that case set its own metadata.
-	if err := str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
+	if err := casmesh.str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
 		// Non-leader errors are OK, since metadata will then be set through
 		// consensus as a result of a join. All other errors indicate a problem.
 		log.Fatalf("failed to set store metadata: %s", err.Error())
 	}
 
-	c := core.New(str)
+	c := core.New(casmesh.str)
 	//Start the HTTP API server.
 	if err = startHTTPService(c, httpLn); err != nil {
 		log.Fatalf("failed to start HTTP server: %s", err.Error())
 	}
-	var grpcCloser func()
-	if grpcCloser, err = startGrpcService(c, grpcLn); err != nil {
+	if err = casmesh.startGrpcService(c, grpcLn); err != nil {
 		log.Fatalf("failed to start grpc server: %s", err.Error())
 	}
 
 	log.Println("node is ready")
 
-	close = func() error {
-		if err := str.Close(true); err != nil {
+	return casmesh, nil
+}
+
+func (c *Casmesh) Close() {
+	if c.str != nil {
+		if err := c.str.Close(true); err != nil {
 			log.Printf("failed to close store: %s", err.Error())
 		}
-		_ = httpLn.Close()
-		grpcCloser()
-		stopProfile()
-		if pprofLn != nil {
-			_ = pprofLn.Close()
-		}
-		log.Println("casbin-mesh server stopped")
-
-		return err
 	}
-	return close
+
+	if c.grpcd != nil {
+		c.grpcd.Stop()
+	}
+
+	if c.pprofLn != nil {
+		_ = c.pprofLn.Close()
+	}
+
+	stopProfile()
+
+	log.Println("casbin-mesh server stopped")
 }
 
-func RaftRPCMatcher() cmux.Matcher {
-	return func(r io.Reader) bool {
-		br := bufio.NewReader(&io.LimitedReader{R: r, N: 1})
-		byt, err := br.ReadByte()
-		if err != nil {
-			log.Printf("Raft RPC Unmatched incoming: %s\n", err)
-			return false
-		}
-		switch byt {
-		case 0, 1, 2, 3:
-			return true
-		}
-		return false
-	}
-}
-
-func determineJoinAddresses(cfg *Config) ([]string, error) {
+func determineJoinAddresses(cfg *CmdConfig) ([]string, error) {
 	//raftAdv := httpAddr
 	//if httpAdv != "" {
 	//	raftAdv = httpAdv
 	//}
 
 	var addrs []string
-	if cfg.joinAddr != "" {
+	if cfg.JoinAddr != "" {
 		// Explicit join addresses are first priority.
-		addrs = strings.Split(cfg.joinAddr, ",")
+		addrs = strings.Split(cfg.JoinAddr, ",")
 	}
 
 	return addrs, nil
 }
 
-func waitForConsensus(str *store.Store, cfg *Config) error {
-	openTimeout, err := time.ParseDuration(cfg.raftOpenTimeout)
+func waitForConsensus(str *store.Store, cfg *CmdConfig) error {
+	openTimeout, err := time.ParseDuration(cfg.RaftOpenTimeout)
 	if err != nil {
-		return fmt.Errorf("failed to parse Raft open timeout %s: %s", cfg.raftOpenTimeout, err.Error())
+		return fmt.Errorf("failed to parse Raft open timeout %s: %s", cfg.RaftOpenTimeout, err.Error())
 	}
 	if _, err := str.WaitForLeader(openTimeout); err != nil {
-		if cfg.raftWaitForLeader {
+		if cfg.RaftWaitForLeader {
 			return fmt.Errorf("leader did not appear within timeout: %s", err.Error())
 		}
 		log.Println("ignoring error while waiting for leader")
@@ -357,28 +349,26 @@ func startHTTPService(c core.Core, ln net.Listener) error {
 	return nil
 }
 
-func startGrpcService(c core.Core, ln net.Listener) (close func(), err error) {
-	grpcd := core.NewGrpcService(c)
+func (c *Casmesh) startGrpcService(co core.Core, ln net.Listener) (err error) {
+	grpcd := core.NewGrpcService(co)
 	go func() {
 		err := grpcd.Serve(ln)
 		if err != nil {
 			log.Println("Grpc service Serve() returned:", err.Error())
 		}
 	}()
-	close = func() {
-		grpcd.Stop()
-	}
-	return close, nil
+	c.grpcd = grpcd
+	return err
 }
 
-func idOrRaftAddr(cfg *Config) string {
-	if cfg.nodeID != "" {
-		return cfg.nodeID
+func idOrRaftAddr(cfg *CmdConfig) string {
+	if cfg.NodeID != "" {
+		return cfg.NodeID
 	}
-	if cfg.raftAdv == "" {
-		return cfg.raftAddr
+	if cfg.RaftAdv == "" {
+		return cfg.RaftAddr
 	}
-	return cfg.raftAdv
+	return cfg.RaftAdv
 }
 
 // prof stores the file locations of active profiles.
