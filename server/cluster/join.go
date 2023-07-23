@@ -21,12 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/casbin/casbin-mesh/server/auth"
 
@@ -42,11 +42,14 @@ var (
 // It walks through joinAddr in order, and sets the node ID and Raft address of
 // the joining node as id addr respectively. It returns the endpoint successfully
 // used to join the cluster.
-func Join(srcIP string, joinAddr []string, id, addr string, voter bool, meta map[string]string, numAttempts int,
+func Join(logger *zap.Logger, srcIP string, joinAddr []string, id, addr string, voter bool, meta map[string]string, numAttempts int,
 	attemptInterval time.Duration, tlsConfig *tls.Config, authConfig auth.AuthConfig) (string, error) {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
 	var err error
 	var j string
-	logger := log.New(os.Stderr, "[cluster-join] ", log.LstdFlags)
 	if tlsConfig == nil {
 		tlsConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -59,14 +62,14 @@ func Join(srcIP string, joinAddr []string, id, addr string, voter bool, meta map
 				return j, nil
 			}
 		}
-		logger.Printf("failed to join cluster at %s: %s, sleeping %s before retry", joinAddr, err.Error(), attemptInterval)
+		logger.Error(fmt.Sprintf("failed to join cluster at %s: %s, sleeping %s before retry", joinAddr, err.Error(), attemptInterval))
 		time.Sleep(attemptInterval)
 	}
-	logger.Printf("failed to join cluster at %s, after %d attempts", joinAddr, numAttempts)
+	logger.Error(fmt.Sprintf("failed to join cluster at %s, after %d attempts", joinAddr, numAttempts))
 	return "", ErrJoinFailed
 }
 
-func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, tlsConfig *tls.Config, logger *log.Logger, authConfig auth.AuthConfig) (string, error) {
+func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, tlsConfig *tls.Config, logger *zap.Logger, authConfig auth.AuthConfig) (string, error) {
 	if id == "" {
 		return "", fmt.Errorf("node ID not set")
 	}
@@ -150,7 +153,7 @@ func join(srcIP, joinAddr, id, addr string, voter bool, meta map[string]string, 
 				return "", fmt.Errorf("failed to join, node returned: %s: (%s)", resp.Status, string(b))
 			}
 
-			logger.Print("join via HTTP failed, trying via HTTPS")
+			logger.Info("join via HTTP failed, trying via HTTPS")
 			fullAddr = utils.EnsureHTTPS(fullAddr)
 			continue
 		default:

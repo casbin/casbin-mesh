@@ -1,0 +1,465 @@
+// Copyright 2023 The Casbin Mesh Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package server
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"net/http/pprof"
+	"os"
+	"path/filepath"
+	"runtime"
+	runtimePprof "runtime/pprof"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	"github.com/casbin/casbin-mesh/server/utils"
+	"go.uber.org/zap"
+
+	"github.com/casbin/casbin-mesh/server/auth"
+	"github.com/casbin/casbin-mesh/server/cluster"
+	"github.com/casbin/casbin-mesh/server/core"
+	"github.com/casbin/casbin-mesh/server/store"
+	"github.com/rs/cors"
+	"google.golang.org/grpc"
+	"gopkg.in/yaml.v3"
+)
+
+type Server struct {
+	grpcd   *grpc.Server
+	str     *store.Store
+	pprofLn net.Listener
+	logger  *zap.Logger
+	closed  atomic.Bool
+}
+
+func NewServer(cfg *CmdConfig) (*Server, error) {
+	logger, err := utils.NewZapLogger(zap.InfoLevel)
+	if err != nil {
+		return nil, err
+	}
+
+	server := &Server{
+		logger: logger,
+	}
+
+	logger.Info("runtime info", zap.String("go", runtime.Version()), zap.String("os", runtime.GOOS), zap.String("arch", runtime.GOARCH))
+	logger.Debug("server config", zap.Any("config", cfg))
+
+	if cfg.ConfigPath != "" {
+		configFile, err := os.ReadFile(cfg.ConfigPath)
+		if err != nil {
+			return nil, err
+		}
+
+		var config Config
+		err = yaml.Unmarshal(configFile, &config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var pprofLn net.Listener
+	if cfg.PprofAddress != "" {
+		pprofLn, err = net.Listen("tcp", cfg.PprofAddress)
+		if err != nil {
+			return nil, err
+		}
+
+		go func() {
+			pprofMux := http.NewServeMux()
+			pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+			pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			logger.Info("pprof server", zap.String("address", pprofLn.Addr().String()))
+			err = http.Serve(pprofLn, pprofMux)
+			if err != nil {
+				server.logger.Fatal("failed to start pprof server", zap.Error(err))
+			}
+		}()
+	}
+
+	// Start requested profiling.
+	server.startProfile(cfg.CpuProfile, cfg.MemProfile)
+
+	httpLn, _, err := server.newListener(cfg.ServerHTTPAddress, cfg.ServerHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	if err != nil {
+		server.logger.Fatal("failed to create HTTP listener", zap.Error(err))
+	}
+
+	grpcLn, _, err := server.newListener(cfg.ServerGRPCAddress, cfg.ServerGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	if err != nil {
+		server.logger.Fatal("failed to create gPRC listener", zap.Error(err))
+	}
+
+	var raftAdv string
+	raftLn, raftAdv, err := server.newListener(cfg.RaftAddr, cfg.RaftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
+	if err != nil {
+		server.logger.Fatal("failed to create Raft listener", zap.Error(err))
+	}
+
+	var raftTransport *store.TcpTransport
+	var raftTlsConfig *tls.Config
+	if cfg.isRaftTlsEnabled() {
+		raftTlsConfig, err = store.CreateTLSConfig(cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), false)
+		if err != nil {
+			server.logger.Fatal("failed to create TLS config of Raft", zap.Error(err))
+		}
+	}
+	raftTransport = store.NewTransportFromListener(server.logger, raftLn, raftTlsConfig)
+
+	// Create and open the store.
+	cfg.DataPath, err = filepath.Abs(cfg.DataPath)
+	if err != nil {
+		server.logger.Fatal("failed to determine absolute data path", zap.Error(err), zap.String("data-path", cfg.DataPath))
+	}
+
+	authType := auth.Noop
+	var credentialsStore *auth.CredentialsStore
+	if cfg.EnableAuth {
+		server.logger.Info("auth type basic")
+		authType = auth.Basic
+		credentialsStore = auth.NewCredentialsStore()
+		err = credentialsStore.Add(cfg.RootUsername, cfg.RootPassword)
+		if err != nil {
+			server.logger.Fatal("failed to init credentialsStore", zap.Error(err))
+		}
+	}
+
+	server.str = store.New(raftTransport, &store.StoreConfig{
+		Dir:              cfg.DataPath,
+		ID:               idOrRaftAddr(cfg),
+		AuthType:         authType,
+		CredentialsStore: credentialsStore,
+		Logger:           logger,
+	})
+
+	// Set optional parameters on store.
+	server.str.RaftLogLevel = cfg.RaftLogLevel
+	server.str.ShutdownOnRemove = cfg.RaftShutdownOnRemove
+	server.str.SnapshotThreshold = cfg.RaftSnapThreshold
+	server.str.SnapshotInterval, err = time.ParseDuration(cfg.RaftSnapInterval)
+	if err != nil {
+		server.logger.Fatal("failed to parse Raft Snapsnot interval", zap.String("raft-snap-interval", cfg.RaftSnapInterval), zap.Error(err))
+	}
+	server.str.LeaderLeaseTimeout, err = time.ParseDuration(cfg.RaftLeaderLeaseTimeout)
+	if err != nil {
+		server.logger.Fatal("failed to parse Raft Leader lease timeout", zap.String("raft-leader-lease-timeout", cfg.RaftLeaderLeaseTimeout), zap.Error(err))
+	}
+	server.str.HeartbeatTimeout, err = time.ParseDuration(cfg.RaftHeartbeatTimeout)
+	if err != nil {
+		server.logger.Fatal("failed to parse Raft heartbeat timeout", zap.String("raft-hear-beat-timeout", cfg.RaftHeartbeatTimeout), zap.Error(err))
+	}
+	server.str.ElectionTimeout, err = time.ParseDuration(cfg.RaftElectionTimeout)
+	if err != nil {
+		server.logger.Fatal("failed to parse Raft election timeout", zap.String("raft-election-timeout", cfg.RaftElectionTimeout), zap.Error(err))
+	}
+	server.str.ApplyTimeout, err = time.ParseDuration(cfg.RaftApplyTimeout)
+	if err != nil {
+		server.logger.Fatal("failed to parse Raft apply timeout", zap.String("raft-election-timeout", cfg.RaftApplyTimeout), zap.Error(err))
+	}
+
+	// Any prexisting node state?
+	var enableBootstrap bool
+	isNew := store.IsNewNode(cfg.DataPath)
+	if isNew {
+		server.logger.Info("no preexisting node state detected, node may be bootstrapping")
+		enableBootstrap = true // New node, so we may be bootstrapping
+	} else {
+		server.logger.Info("preexisting node state detected")
+	}
+
+	// Determine join addresses
+	var joins []string
+	joins, err = determineJoinAddresses(cfg)
+	if err != nil {
+		server.logger.Info("unable to determine join addresses", zap.Error(err))
+	}
+
+	// Supplying join addresses means bootstrapping a new cluster won't
+	// be required.
+	if len(joins) > 0 {
+		enableBootstrap = false
+		server.logger.Info("join addresses specified, node is not bootstrapping")
+	} else {
+		server.logger.Info("no join addresses set")
+	}
+
+	// Join address supplied, but we don't need them!
+	if !isNew && len(joins) > 0 {
+		server.logger.Info("node is already member of cluster, ignoring join addresses")
+	}
+
+	// Now, open store.
+	if err := server.str.Open(enableBootstrap); err != nil {
+		server.logger.Fatal("failed to open store", zap.Error(err))
+	}
+
+	// Prepare metadata for join command.
+	apiAdv := raftAdv
+	apiProto := "http"
+	if cfg.X509Cert != "" {
+		apiProto = "https"
+	}
+	meta := map[string]string{
+		"api_addr":  apiAdv,
+		"api_proto": apiProto,
+	}
+
+	// Execute any requested join operation.
+	if len(joins) > 0 && isNew {
+		server.logger.Info("join addresses", zap.Any("join-address", joins))
+		advAddr := cfg.RaftAddr
+		if cfg.RaftAdv != "" {
+			advAddr = cfg.RaftAdv
+		}
+
+		joinDur, err := time.ParseDuration(cfg.JoinInterval)
+		if err != nil {
+			server.logger.Fatal("failed to parse Join interval", zap.String("join-interval", cfg.JoinInterval), zap.Error(err))
+		}
+
+		tlsConfig := tls.Config{InsecureSkipVerify: cfg.NoVerify}
+		if cfg.X509CACert != "" {
+			asn1Data, err := ioutil.ReadFile(cfg.X509CACert)
+			if err != nil {
+				server.logger.Fatal("ioutil.ReadFile failed", zap.Error(err))
+			}
+			tlsConfig.RootCAs = x509.NewCertPool()
+			ok := tlsConfig.RootCAs.AppendCertsFromPEM([]byte(asn1Data))
+			if !ok {
+				server.logger.Fatal("failed to parse root CA certificate(s)", zap.String("x509-ca-cert", cfg.X509CACert))
+			}
+		}
+
+		if j, err := cluster.Join(server.logger, cfg.JoinSrcIP, joins, server.str.ID(), advAddr, !cfg.RaftNonVoter, meta,
+			cfg.JoinAttempts, joinDur, &tlsConfig, auth.AuthConfig{AuthType: authType, Username: cfg.RootUsername, Password: cfg.RootPassword}); err != nil {
+			server.logger.Fatal("failed to join cluster", zap.Any("join-address", joins), zap.Error(err))
+		} else {
+			server.logger.Fatal("successfully joined cluster", zap.Any("join-address", j))
+		}
+
+	}
+
+	// Wait until the store is in full consensus.
+	if err := server.waitForConsensus(server.str, cfg); err != nil {
+		server.logger.Fatal("waitForConsensus error", zap.Error(err))
+	}
+	// Init Auth Enforce
+	if isNew && cfg.EnableAuth {
+		if err := server.str.InitAuth(context.TODO(), cfg.RootUsername); err != nil {
+			server.logger.Fatal("failed to init auth", zap.Error(err))
+		}
+	}
+	// This may be a standalone server. In that case set its own metadata.
+	if err := server.str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
+		// Non-leader errors are OK, since metadata will then be set through
+		// consensus as a result of a join. All other errors indicate a problem.
+		server.logger.Fatal("failed to set store metadata", zap.Error(err))
+	}
+
+	c := core.New(server.str)
+	//Start the HTTP API server.
+	if err = server.startHTTPService(c, httpLn); err != nil {
+		server.logger.Fatal("failed to start HTTP server", zap.Error(err))
+	}
+	if err = server.startGrpcService(c, grpcLn); err != nil {
+		server.logger.Fatal("failed to start grpc HTTP server", zap.Error(err))
+	}
+
+	server.logger.Info("node is ready", zap.Error(err))
+
+	return server, nil
+}
+
+func (s *Server) Close() {
+	if !s.closed.CompareAndSwap(false, true) {
+		return
+	}
+
+	if s.str != nil {
+		if err := s.str.Close(true); err != nil {
+			s.logger.Error("failed to close store", zap.Error(err))
+		}
+	}
+
+	if s.grpcd != nil {
+		s.grpcd.Stop()
+	}
+
+	if s.pprofLn != nil {
+		_ = s.pprofLn.Close()
+	}
+
+	if prof.cpu != nil {
+		runtimePprof.StopCPUProfile()
+		_ = prof.cpu.Close()
+		s.logger.Info("CPU profiling stopped")
+	}
+	if prof.mem != nil {
+		_ = runtimePprof.Lookup("heap").WriteTo(prof.mem, 0)
+		_ = prof.mem.Close()
+		s.logger.Info("memory profiling stopped")
+	}
+
+	s.logger.Info("casbin-mesh server stopped")
+}
+
+func determineJoinAddresses(cfg *CmdConfig) ([]string, error) {
+	//raftAdv := httpAddr
+	//if httpAdv != "" {
+	//	raftAdv = httpAdv
+	//}
+
+	var addrs []string
+	if cfg.JoinAddr != "" {
+		// Explicit join addresses are first priority.
+		addrs = strings.Split(cfg.JoinAddr, ",")
+	}
+
+	return addrs, nil
+}
+
+func (s *Server) waitForConsensus(str *store.Store, cfg *CmdConfig) error {
+	openTimeout, err := time.ParseDuration(cfg.RaftOpenTimeout)
+	if err != nil {
+		return fmt.Errorf("failed to parse Raft open timeout %s: %s", cfg.RaftOpenTimeout, err.Error())
+	}
+	if _, err := str.WaitForLeader(openTimeout); err != nil {
+		if cfg.RaftWaitForLeader {
+			return fmt.Errorf("leader did not appear within timeout: %s", err.Error())
+		}
+		s.logger.Info("ignoring error while waiting for leader")
+	}
+	if openTimeout != 0 {
+		if err := str.WaitForApplied(openTimeout); err != nil {
+			return fmt.Errorf("log was not fully applied within timeout: %s", err.Error())
+		}
+	} else {
+		s.logger.Info("not waiting for logs to be applied")
+	}
+	return nil
+}
+
+func (s *Server) startHTTPService(c core.Core, ln net.Listener) error {
+	httpd := core.NewHttpService(c)
+	handler := cors.AllowAll().Handler(httpd)
+	go func() {
+		err := http.Serve(ln, handler)
+		if err != nil {
+			s.logger.Fatal("HTTP service Serve() returned", zap.Error(err))
+		}
+	}()
+
+	return nil
+}
+
+func (s *Server) startGrpcService(c core.Core, ln net.Listener) (err error) {
+	grpcd := core.NewGrpcService(c)
+	go func() {
+		err := grpcd.Serve(ln)
+		if err != nil {
+			s.logger.Fatal("Grpc service Serve() returned", zap.Error(err))
+		}
+	}()
+	s.grpcd = grpcd
+	return err
+}
+
+func idOrRaftAddr(cfg *CmdConfig) string {
+	if cfg.NodeID != "" {
+		return cfg.NodeID
+	}
+	if cfg.RaftAdv == "" {
+		return cfg.RaftAddr
+	}
+	return cfg.RaftAdv
+}
+
+// prof stores the file locations of active profiles.
+var prof struct {
+	cpu *os.File
+	mem *os.File
+}
+
+// startProfile initializes the CPU and memory profile, if specified.
+func (s *Server) startProfile(cpuprofile, memprofile string) {
+	if cpuprofile != "" {
+		f, err := os.Create(cpuprofile)
+		if err != nil {
+			s.logger.Fatal("failed to create CPU profile file", zap.Error(err), zap.String("cpu-profile", cpuprofile))
+		}
+		s.logger.Info("writing CPU profile to path", zap.String("path", cpuprofile))
+		prof.cpu = f
+		_ = runtimePprof.StartCPUProfile(prof.cpu)
+	}
+
+	if memprofile != "" {
+		f, err := os.Create(memprofile)
+		if err != nil {
+			s.logger.Fatal("failed to create memory profile", zap.Error(err), zap.String("memory-profile", memprofile))
+		}
+		s.logger.Info("writing memory profile to path", zap.String("path", memprofile))
+		prof.mem = f
+		runtime.MemProfileRate = 4096
+	}
+}
+
+func (s *Server) newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string, caFile string, clientAuthType tls.ClientAuthType, isServer bool) (net.Listener, string, error) {
+	listenerAddresses := strings.Split(address, ",")
+	if len(listenerAddresses) == 0 {
+		s.logger.Fatal("fatal: bind-address cannot empty")
+	}
+
+	advAddr := listenerAddresses[0]
+	if advertiseAddress != "" {
+		advAddr = advertiseAddress
+	}
+
+	// Create peer communication network layer.
+	var lns []net.Listener
+	for _, address := range listenerAddresses {
+		if encrypt {
+			s.logger.Info("enabling encryption", zap.String("cert", certFile), zap.String("key", keyFile))
+			cfg, err := store.CreateTLSConfig(certFile, keyFile, caFile, isServer)
+			if err != nil {
+				s.logger.Fatal("failed to create tls config", zap.Error(err))
+			}
+			cfg.ClientAuth = clientAuthType
+			ln, err := tls.Listen("tcp", address, cfg)
+			if err != nil {
+				s.logger.Fatal("failed to open internode network layer", zap.Error(err))
+			}
+			lns = append(lns, ln)
+		} else {
+			ln, err := net.Listen("tcp", advAddr)
+			if err != nil {
+				s.logger.Fatal("failed to open internode network layer", zap.Error(err))
+			}
+			lns = append(lns, ln)
+		}
+	}
+
+	ln, err := cluster.NewListener(lns, advAddr)
+	return ln, advAddr, err
+}

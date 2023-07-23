@@ -19,6 +19,8 @@ import (
 	"os"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +46,7 @@ func testGetPolicy(t *testing.T, e casbin.IEnforcer, wanted [][]string) {
 func (suite *AdapterTestSuite) SetupTest() {
 	t := suite.T()
 
-	db, err := NewBadgerStore(testDB)
+	db, err := NewBadgerStore(zap.NewExample(), testDB)
 	if err != nil {
 		t.Fatalf("error opening db: %s\n", err.Error())
 	}

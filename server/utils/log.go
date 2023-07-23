@@ -12,20 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package store
+package utils
 
 import (
-	"github.com/casbin/casbin-mesh/server/auth"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-// StoreConfig represents the configuration of the underlying Store.
-type StoreConfig struct {
-	Dir      string      // The working directory for raft.
-	Tn       Transport   // The underlying Transport for raft.
-	ID       string      // Node ID.
-	Logger   *zap.Logger // The logger to use to log stuff.
-	AuthType auth.AuthType
-	*auth.CredentialsStore
-	AdvAddr string
+func NewZapLogger(level zapcore.Level) (*zap.Logger, error) {
+	config := zap.NewProductionConfig()
+	config.Level = zap.NewAtomicLevelAt(level)
+	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	config.EncoderConfig.EncodeDuration = zapcore.StringDurationEncoder
+
+	return config.Build()
 }

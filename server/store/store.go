@@ -18,13 +18,14 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/casbin/casbin-mesh/server/adapter"
 	"github.com/casbin/casbin-mesh/server/auth"
@@ -144,7 +145,7 @@ type Store struct {
 	meta           map[string]map[string]string
 	enforcers      sync.Map
 	enforcersState *adapter.BadgerStore
-	logger         *log.Logger
+	logger         *zap.Logger
 
 	ShutdownOnRemove   bool
 	SnapshotThreshold  uint64
@@ -165,7 +166,6 @@ func (s *Store) AuthType() auth.AuthType {
 // Check validates username and password
 func (s *Store) Check(username, password string) bool {
 	if s.authCredStore == nil {
-		log.Println("get authCredStore is nil")
 		return false
 	}
 	return s.authCredStore.Check(username, password)
@@ -183,7 +183,7 @@ func IsNewNode(raftDir string) bool {
 func New(ln Listener, c *StoreConfig) *Store {
 	logger := c.Logger
 	if logger == nil {
-		logger = log.New(os.Stderr, "[store] ", log.LstdFlags)
+		logger = zap.NewNop()
 	}
 
 	store := &Store{
@@ -196,8 +196,7 @@ func New(ln Listener, c *StoreConfig) *Store {
 		authType:      c.AuthType,
 		authCredStore: c.CredentialsStore,
 	}
-	logger.Printf("cred store %v", c.CredentialsStore)
-	logger.Println("store is ready")
+	logger.Info("store is ready")
 
 	return store
 
@@ -221,9 +220,8 @@ func (s *Store) InitRoot(username, password string) error {
 // operation after opening the Store.
 func (s *Store) Open(enableBootstrap bool) error {
 	s.openT = time.Now()
-	s.logger.Printf("opening store with node ID %s", s.raftID)
-
-	s.logger.Printf("ensuring directory at %s exists", s.raftDir)
+	s.logger.Info("opening store with node ID", zap.String("node-id", s.raftID))
+	s.logger.Info("ensuring directory exists", zap.String("raft-dir", s.raftDir))
 	err := os.MkdirAll(s.raftDir, 0755)
 	if err != nil {
 		return err
@@ -237,6 +235,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 
 	config := s.raftConfig()
 	config.LocalID = raft.ServerID(s.raftID)
+	config.Logger = newRaftLogger(s.logger)
 
 	// Create the snapshot store. This allows Raft to truncate the log.
 	snapshots, err := raft.NewFileSnapshotStore(s.raftDir, retainSnapshotCount, os.Stderr)
@@ -247,10 +246,10 @@ func (s *Store) Open(enableBootstrap bool) error {
 	if err != nil {
 		return fmt.Errorf("list snapshots: %s", err)
 	}
-	s.logger.Printf("%d pre-existing snapshots present", len(snaps))
+	s.logger.Info(fmt.Sprintf("%d pre-existing snapshots present", len(snaps)))
 	s.snapsExistOnOpen = len(snaps) > 0
 	// TODO !important. stale read? restart after the node crashed
-	s.enforcersState, err = adapter.NewBadgerStore(filepath.Join(s.raftDir, stateDBPath))
+	s.enforcersState, err = adapter.NewBadgerStore(s.logger, filepath.Join(s.raftDir, stateDBPath))
 	if err != nil {
 		return fmt.Errorf("new state store: %s", err)
 	}
@@ -269,8 +268,8 @@ func (s *Store) Open(enableBootstrap bool) error {
 	if err := s.setLogInfo(); err != nil {
 		return fmt.Errorf("set log info: %s", err)
 	}
-	s.logger.Printf("first log index: %d, last log index: %d, last command log index: %d:",
-		s.firstIdxOnOpen, s.lastIdxOnOpen, s.lastCommandIdxOnOpen)
+	s.logger.Info(fmt.Sprintf("first log index: %d, last log index: %d, last command log index: %d",
+		s.firstIdxOnOpen, s.lastIdxOnOpen, s.lastCommandIdxOnOpen))
 
 	// Instantiate the Raft system.
 	ra, err := raft.NewRaft(config, s, s.raftLog, s.raftStable, snapshots, s.raftTn)
@@ -279,7 +278,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 	}
 
 	if enableBootstrap {
-		s.logger.Printf("executing new cluster bootstrap, addr:%s", s.raftTn.LocalAddr())
+		s.logger.Info(fmt.Sprintf("executing new cluster bootstrap, addr:%s", s.raftTn.LocalAddr()))
 		configuration := raft.Configuration{
 			Servers: []raft.Server{
 				{
@@ -290,7 +289,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 		}
 		ra.BootstrapCluster(configuration)
 	} else {
-		s.logger.Printf("no cluster bootstrap requested")
+		s.logger.Info("no cluster bootstrap requested")
 	}
 
 	s.raft = ra
@@ -361,7 +360,7 @@ func (s *Store) WaitForApplied(timeout time.Duration) error {
 	if timeout == 0 {
 		return nil
 	}
-	s.logger.Printf("waiting for up to %s for application of initial logs", timeout)
+	s.logger.Info(fmt.Sprintf("waiting for up to %s for application of initial logs", timeout))
 	if err := s.WaitForAppliedIndex(s.raft.LastIndex(), timeout); err != nil {
 		return ErrOpenTimeout
 	}
@@ -417,7 +416,7 @@ func (s *Store) LeaderID() (string, error) {
 	addr := s.LeaderAddr()
 	configFuture := s.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
-		s.logger.Printf("failed to get raft configuration: %v", err)
+		s.logger.Error("failed to get raft configuration", zap.Error(err))
 		return "", err
 	}
 
@@ -544,14 +543,14 @@ func (s *Store) Stats() (map[string]interface{}, error) {
 // Join joins a node, identified by id and located at addr, to this store.
 // The node must be ready to respond to Raft communications at that address.
 func (s *Store) Join(id, addr string, voter bool, metadata map[string]string) error {
-	s.logger.Printf("received request to join node at %s", addr)
+	s.logger.Info(fmt.Sprintf("received request to join node at %s", addr))
 	if s.raft.State() != raft.Leader {
 		return ErrNotLeader
 	}
 
 	configFuture := s.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
-		s.logger.Printf("failed to get raft configuration: %v", err)
+		s.logger.Error("failed to get raft configuration", zap.Error(err))
 		return err
 	}
 
@@ -562,12 +561,12 @@ func (s *Store) Join(id, addr string, voter bool, metadata map[string]string) er
 			// However if *both* the ID and the address are the same, the no
 			// join is actually needed.
 			if srv.Address == raft.ServerAddress(addr) && srv.ID == raft.ServerID(id) {
-				s.logger.Printf("node %s at %s already member of cluster, ignoring join request", id, addr)
+				s.logger.Info(fmt.Sprintf("node %s at %s already member of cluster, ignoring join request", id, addr))
 				return nil
 			}
 
 			if err := s.remove(id); err != nil {
-				s.logger.Printf("failed to remove node: %v", err)
+				s.logger.Error("failed to remove node", zap.Error(err))
 				return err
 			}
 		}
@@ -591,19 +590,18 @@ func (s *Store) Join(id, addr string, voter bool, metadata map[string]string) er
 		return err
 	}
 
-	s.logger.Printf("node at %s joined successfully as %s", addr, prettyVoter(voter))
+	s.logger.Info(fmt.Sprintf("node at %s joined successfully as %s", addr, prettyVoter(voter)))
 	return nil
 }
 
 // Remove removes a node from the store, specified by ID.
 func (s *Store) Remove(id string) error {
-	s.logger.Printf("received request to remove node %s", id)
+	s.logger.Info("received request to remove node", zap.String("node-id", id))
 	if err := s.remove(id); err != nil {
-		s.logger.Printf("failed to remove node %s: %s", id, err.Error())
+		s.logger.Info("failed to remove node", zap.String("node-id", id), zap.Error(err))
 		return err
 	}
-
-	s.logger.Printf("node %s removed successfully", id)
+	s.logger.Info("node removed successfully", zap.String("node-id", id))
 	return nil
 }
 

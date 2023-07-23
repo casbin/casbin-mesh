@@ -61,7 +61,7 @@ func main() {
 
 			cfg.DataPath = args[0]
 
-			casmesh, err := server.NewCasmesh(&cfg)
+			s, err := server.NewServer(&cfg)
 			if err != nil {
 				fmt.Printf("fatal: faild to stat casmesh: %v\n", err)
 				os.Exit(1)
@@ -72,7 +72,7 @@ func main() {
 			ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 			defer stop()
 			<-ctx.Done()
-			casmesh.Close()
+			s.Close()
 		},
 	}
 

@@ -15,13 +15,13 @@
 package adapter
 
 import (
+	"fmt"
+	"io"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
-
-	"io"
-	"log"
-	"sync"
+	"go.uber.org/zap"
 )
 
 var (
@@ -47,7 +47,8 @@ type BadgerStore struct {
 	vlogTicker          *time.Ticker // runs every 1m, check size of vlog and run GC conditionally.
 	mandatoryVlogTicker *time.Ticker // runs every 10m, we always run vlog GC.
 
-	mu *sync.Mutex
+	mu     *sync.Mutex
+	logger *zap.Logger
 }
 
 // Restore overwrites the local file
@@ -55,7 +56,7 @@ func (b *BadgerStore) Restore(reader io.Reader) error {
 
 	err := b.conn.Load(reader, maxPendingWrites)
 	if err != nil {
-		log.Println("failed to open the database file", err)
+		b.logger.Error("failed to open the database file", zap.Error(err))
 		return err
 	}
 
@@ -68,7 +69,7 @@ func (b BadgerStore) Snapshot(writer io.Writer) error {
 	defer b.mu.Unlock()
 	_, err := b.conn.Backup(writer, 0)
 	if err != nil {
-		log.Println("failed to snapshot the database", err)
+		b.logger.Error("failed to snapshot the database", zap.Error(err))
 		return err
 	}
 	return nil
@@ -282,23 +283,29 @@ type Options struct {
 	// GCThreshold sets threshold in bytes for the vlog size to be included in the
 	// garbage collection cycle. By default, 1GB.
 	GCThreshold int64
+
+	logger *zap.Logger
 }
 
 // NewBadgerStore takes a file path and returns a connected Raft backend.
-func NewBadgerStore(path string) (*BadgerStore, error) {
-	return New(Options{Path: path})
+func NewBadgerStore(logger *zap.Logger, path string) (*BadgerStore, error) {
+	options := Options{Path: path, logger: logger}
+	return New(options)
 }
 
 // New uses the supplied options to open the Badger db and prepare it for
 // use as a raft backend.
 func New(options Options) (*BadgerStore, error) {
-
+	if options.logger == nil {
+		options.logger = zap.NewNop()
+	}
 	// build badger options
 	if options.BadgerOptions == nil {
 		defaultOpts := badger.DefaultOptions(options.Path)
 		options.BadgerOptions = &defaultOpts
 	}
 	options.BadgerOptions.SyncWrites = !options.NoSync
+	options.BadgerOptions.Logger = newBadgerLogger(options.logger)
 
 	// Try to connect
 	handle, err := badger.Open(*options.BadgerOptions)
@@ -308,9 +315,10 @@ func New(options Options) (*BadgerStore, error) {
 
 	// Create the new store
 	store := &BadgerStore{
-		conn: handle,
-		path: options.Path,
-		mu:   &sync.Mutex{},
+		conn:   handle,
+		path:   options.Path,
+		mu:     &sync.Mutex{},
+		logger: options.logger,
 	}
 
 	// Start GC routine
@@ -363,4 +371,31 @@ func (b *BadgerStore) runVlogGC(db *badger.DB, threshold int64) {
 			runGC()
 		}
 	}
+}
+
+type badgerLogger struct {
+	logger *zap.Logger
+}
+
+func newBadgerLogger(logger *zap.Logger) *badgerLogger {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &badgerLogger{logger: logger.WithOptions(zap.AddCallerSkip(2))}
+}
+
+func (b *badgerLogger) Errorf(format string, a ...interface{}) {
+	b.logger.Error(fmt.Sprintf(format, a...))
+}
+
+func (b *badgerLogger) Warningf(format string, a ...interface{}) {
+	b.logger.Warn(fmt.Sprintf(format, a...))
+}
+
+func (b *badgerLogger) Infof(format string, a ...interface{}) {
+	b.logger.Info(fmt.Sprintf(format, a...))
+}
+
+func (b *badgerLogger) Debugf(format string, a ...interface{}) {
+	b.logger.Debug(fmt.Sprintf(format, a...))
 }

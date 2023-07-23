@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -50,7 +49,6 @@ func parseBasicAuth(auth string) (username, password string, ok bool) {
 }
 
 func getBasicAuthFormContext(ctx context.Context) (username, password string, ok bool) {
-	log.Println(ctx)
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", "", false

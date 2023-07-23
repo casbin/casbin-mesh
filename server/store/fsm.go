@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/casbin/casbin-mesh/server/adapter"
 	"github.com/casbin/casbin-mesh/server/auth"
@@ -170,7 +171,6 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 			if err != nil {
 				return &FSMResponse{error: err}
 			}
-			log.Println("set model successfully")
 		} else {
 			return &FSMResponse{error: NamespaceNotExist}
 		}
@@ -288,7 +288,7 @@ func (s *Store) Apply(l *raft.Log) (e interface{}) {
 
 type fsmSnapshot struct {
 	startT          time.Time
-	logger          *log.Logger
+	logger          *zap.Logger
 	models          []byte
 	state           []byte
 	meta            []byte
@@ -314,7 +314,7 @@ func SnapshotHdr() []byte {
 // Persist implements persistence of states
 func (f fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 	defer func() {
-		f.logger.Printf("snapshot and persist took %s", time.Since(f.startT))
+		f.logger.Info(fmt.Sprintf("snapshot and persist took %s", time.Since(f.startT)))
 	}()
 	err := func() error {
 		data, err := json.Marshal(persistData{
@@ -356,7 +356,7 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 	writer := new(bytes.Buffer)
 	err = s.enforcersState.Snapshot(writer)
 	if err != nil {
-		s.logger.Printf("failed to encode enforcerState: %s", err.Error())
+		s.logger.Error("failed to encode enforcerState", zap.Error(err))
 		return nil, err
 	}
 	models := make(map[string]string)
@@ -369,18 +369,18 @@ func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
 	fsm.state = writer.Bytes()
 	fsm.meta, err = json.Marshal(s.meta)
 	if err != nil {
-		s.logger.Printf("failed to encode Meta: %s", err.Error())
+		s.logger.Error("failed to encode Meta", zap.Error(err))
 		return nil, err
 	}
 	fsm.models, err = json.Marshal(models)
 	if err != nil {
-		s.logger.Printf("failed to encode Meta: %s", err.Error())
+		s.logger.Error("failed to encode Model", zap.Error(err))
 		return nil, err
 	}
 	if s.authCredStore != nil {
 		credStoreWriter := new(bytes.Buffer)
 		if err := s.authCredStore.Snapshot(credStoreWriter); err != nil {
-			s.logger.Println("failed to snapshot authCredStore", err)
+			s.logger.Error("failed to snapshot authCredStore", zap.Error(err))
 		} else {
 			fsm.credentialStore = credStoreWriter.Bytes()
 		}
@@ -395,59 +395,59 @@ func (s *Store) Restore(closer io.ReadCloser) error {
 	snap, err := ioutil.ReadAll(closer)
 	err = json.Unmarshal(snap[8:], &data)
 	if err != nil {
-		s.logger.Println("failed to decode restore data", err)
+		s.logger.Error("failed to decode restore data", zap.Error(err))
 		return err
 	}
 
 	err = s.enforcersState.Restore(bytes.NewReader(data.State))
 	if err != nil {
-		s.logger.Println("failed to restore enforcer state", err)
+		s.logger.Error("failed to decode enforcer state", zap.Error(err))
 		return err
 	}
 	s.enforcers = sync.Map{}
 	models := make(map[string]string)
 	err = json.Unmarshal(data.Models, &models)
 	if err != nil {
-		s.logger.Println("failed to unmarshal models state", err)
+		s.logger.Error("failed to unmarshal models state", zap.Error(err))
 		return err
 	}
 	err = s.enforcersState.ForEach(func(name []byte, bucket *adapter.Bucket) error {
 		if model, ok := models[string(name)]; ok {
 			enforcer, err := casbin.NewDistributedEnforcer()
 			if err != nil {
-				s.logger.Println("failed to create enforcer", err)
+				s.logger.Error("failed to create enforcer", zap.Error(err))
 				return err
 			}
 			a, err := adapter.NewAdapter(s.enforcersState, string(name), "")
 			if err != nil {
-				s.logger.Println("failed to create adapter", err)
+				s.logger.Error("failed to create adapter", zap.Error(err))
 				return err
 			}
 			model, err := model2.NewModelFromString(model)
 			if err != nil {
-				s.logger.Println("failed to create model", err)
+				s.logger.Error("failed to create model", zap.Error(err))
 				return err
 			}
 			err = enforcer.InitWithModelAndAdapter(model, a)
 			if err != nil {
-				s.logger.Println("failed to init enforcer", err)
+				s.logger.Error("failed to init enforcer", zap.Error(err))
 				return err
 			}
 			s.enforcers.Store(string(name), enforcer)
 		} else {
-			s.logger.Printf("%s namespace is not existing a valid model\n", string(name))
+			s.logger.Info(fmt.Sprintf("%s namespace is not existing a valid model", string(name)))
 		}
 		return nil
 	})
 	if err != nil {
-		s.logger.Println("failed to restore enforcer ", err)
+		s.logger.Error("failed to restore enforcer", zap.Error(err))
 		return err
 	}
 	if data.CredentialStore != nil {
 		s.authCredStore = auth.NewCredentialsStore()
 		err := s.authCredStore.Load(bytes.NewReader(data.CredentialStore))
 		if err != nil {
-			s.logger.Println("failed to load authCredStore ", err)
+			s.logger.Error("failed to load authCredStore", zap.Error(err))
 			return err
 		}
 	}

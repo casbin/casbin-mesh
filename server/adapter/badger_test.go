@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"testing"
 
+	"go.uber.org/zap"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -32,7 +34,7 @@ type BadgerTestSuite struct {
 func (suite *BadgerTestSuite) SetupTest() {
 	t := suite.T()
 
-	db, err := NewBadgerStore(testDB)
+	db, err := NewBadgerStore(zap.NewExample(), testDB)
 	if err != nil {
 		t.Fatalf("error opening db: %s\n", err.Error())
 	}

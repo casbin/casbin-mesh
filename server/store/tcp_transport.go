@@ -17,10 +17,11 @@ package store
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"log"
 	"net"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 // TcpTransport is the network layer for Raft communications.
@@ -28,11 +29,15 @@ type TcpTransport struct {
 	ln              net.Listener
 	advAddr         net.Addr
 	clientTlsConfig *tls.Config
+	logger          *zap.Logger
 }
 
 // NewTransportFromListener returns an initialized TcpTransport
-func NewTransportFromListener(ln net.Listener, clientTlsConfig *tls.Config) *TcpTransport {
-	return &TcpTransport{ln: ln, clientTlsConfig: clientTlsConfig, advAddr: ln.Addr()}
+func NewTransportFromListener(logger *zap.Logger, ln net.Listener, clientTlsConfig *tls.Config) *TcpTransport {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+	return &TcpTransport{ln: ln, clientTlsConfig: clientTlsConfig, advAddr: ln.Addr(), logger: logger}
 }
 
 // Dial opens a network connection.
@@ -50,7 +55,7 @@ func (t *TcpTransport) Dial(addr string, timeout time.Duration) (net.Conn, error
 func (t *TcpTransport) Accept() (net.Conn, error) {
 	c, err := t.ln.Accept()
 	if err != nil {
-		log.Println("error accepting: ", err.Error())
+		t.logger.Error("err accepting", zap.Error(err))
 	}
 	return c, err
 }
