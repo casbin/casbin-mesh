@@ -110,18 +110,18 @@ func (s *Server) Start() error {
 	// Start requested profiling.
 	s.startProfile(cfg.CpuProfile, cfg.MemProfile)
 
-	httpLn, _, err := s.newListener(cfg.ServerHTTPAddress, cfg.ServerHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	httpLn, err := s.newListener(cfg.ServerHTTPAddress, cfg.ServerHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		s.logger.Fatal("failed to create HTTP listener", zap.Error(err))
 	}
 
-	grpcLn, _, err := s.newListener(cfg.ServerGRPCAddress, cfg.ServerGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
+	grpcLn, err := s.newListener(cfg.ServerGRPCAddress, cfg.ServerGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
 		s.logger.Fatal("failed to create gPRC listener", zap.Error(err))
 	}
 
 	var raftAdv string
-	raftLn, raftAdv, err := s.newListener(cfg.RaftAddr, cfg.RaftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
+	raftLn, err := s.newListener(cfg.RaftAddr, cfg.RaftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
 	if err != nil {
 		s.logger.Fatal("failed to create Raft listener", zap.Error(err))
 	}
@@ -432,15 +432,10 @@ func (s *Server) startProfile(cpuprofile, memprofile string) {
 	}
 }
 
-func (s *Server) newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string, caFile string, clientAuthType tls.ClientAuthType, isServer bool) (net.Listener, string, error) {
+func (s *Server) newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string, caFile string, clientAuthType tls.ClientAuthType, isServer bool) (net.Listener, error) {
 	listenerAddresses := strings.Split(address, ",")
 	if len(listenerAddresses) == 0 {
 		s.logger.Fatal("fatal: bind-address cannot empty")
-	}
-
-	advAddr := listenerAddresses[0]
-	if advertiseAddress != "" {
-		advAddr = advertiseAddress
 	}
 
 	// Create peer communication network layer.
@@ -459,7 +454,7 @@ func (s *Server) newListener(address string, advertiseAddress string, encrypt bo
 			}
 			lns = append(lns, ln)
 		} else {
-			ln, err := net.Listen("tcp", advAddr)
+			ln, err := net.Listen("tcp", address)
 			if err != nil {
 				s.logger.Fatal("failed to open internode network layer", zap.Error(err))
 			}
@@ -467,6 +462,6 @@ func (s *Server) newListener(address string, advertiseAddress string, encrypt bo
 		}
 	}
 
-	ln, err := cluster.NewListener(lns, advAddr)
-	return ln, advAddr, err
+	ln, err := cluster.NewListener(lns, advertiseAddress)
+	return ln, err
 }
