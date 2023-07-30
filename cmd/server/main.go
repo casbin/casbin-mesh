@@ -63,7 +63,13 @@ func main() {
 
 			s, err := server.NewServer(&cfg)
 			if err != nil {
-				fmt.Printf("fatal: faild to stat casmesh: %v\n", err)
+				fmt.Printf("fatal: faild to new casmesh: %v\n", err)
+				os.Exit(1)
+				return
+			}
+			err = s.Start()
+			if err != nil {
+				fmt.Printf("fatal: faild to start casmesh: %v\n", err)
 				os.Exit(1)
 				return
 			}
