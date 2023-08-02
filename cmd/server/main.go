@@ -107,7 +107,7 @@ func main() {
 	cmd.Flags().StringVar(&cfg.RaftLogLevel, "raft-log-level", "INFO", "Minimum log level for Raft module")
 	cmd.Flags().IntVar(&cfg.CompressionSize, "compression-size", 150, "Request query size for compression attempt")
 	cmd.Flags().IntVar(&cfg.CompressionBatch, "compression-batch", 5, "Request batch threshold for compression attempt")
-	cmd.Flags().StringVar(&cfg.ConfigPath, "config", "", "Path to a configuration file")
+	//cmd.Flags().StringVar(&cfg.ConfigPath, "config", "", "Path to a configuration file")
 	cmd.Flags().StringVar(&cfg.ServerHTTPAddress, "server-http-address", "localhost:5200", "HTTP communication bind address, supports multiple addresses by commas")
 	cmd.Flags().StringVar(&cfg.ServerHTTPAdvertiseAddress, "server-http-advertise-address", "", "Advertised HTTP communication address. If not set, same as HTTP bind")
 	cmd.Flags().StringVar(&cfg.ServerGRPCAddress, "server-grpc-address", "localhost:5201", "gRPC communication bind address, supports multiple addresses by commas")
