@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -108,22 +109,25 @@ func (s *Server) Start() error {
 	}
 
 	// Start requested profiling.
-	s.startProfile(cfg.CpuProfile, cfg.MemProfile)
+	err = s.startProfile(cfg.CpuProfile, cfg.MemProfile)
+	if err != nil {
+		return err
+	}
 
 	httpLn, err := s.newListener(cfg.ServerHTTPAddress, cfg.ServerHTTPAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
-		s.logger.Fatal("failed to create HTTP listener", zap.Error(err))
+		return fmt.Errorf("failed to create HTTP listener: %w", err)
 	}
 
 	grpcLn, err := s.newListener(cfg.ServerGRPCAddress, cfg.ServerGPRCAdvertiseAddress, cfg.isServerTlsEnabled(), cfg.getServerKeyFile(), cfg.getServerCertFile(), cfg.getServerCAFile(), tls.NoClientCert, true)
 	if err != nil {
-		s.logger.Fatal("failed to create gPRC listener", zap.Error(err))
+		return fmt.Errorf("failed to create gPRC listener: %w", err)
 	}
 
 	var raftAdv string
 	raftLn, err := s.newListener(cfg.RaftAddr, cfg.RaftAdv, cfg.isRaftTlsEnabled(), cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), tls.RequireAndVerifyClientCert, true)
 	if err != nil {
-		s.logger.Fatal("failed to create Raft listener", zap.Error(err))
+		return fmt.Errorf("failed to create Raft listener: %w", err)
 	}
 
 	var raftTransport *store.TcpTransport
@@ -131,7 +135,7 @@ func (s *Server) Start() error {
 	if cfg.isRaftTlsEnabled() {
 		raftTlsConfig, err = store.CreateTLSConfig(cfg.getRaftKeyFile(), cfg.getRaftCertFile(), cfg.getRaftCAFile(), false)
 		if err != nil {
-			s.logger.Fatal("failed to create TLS config of Raft", zap.Error(err))
+			return fmt.Errorf("failed to create TLS config of Raft: %w", err)
 		}
 	}
 	raftTransport = store.NewTransportFromListener(s.logger, raftLn, raftTlsConfig)
@@ -139,7 +143,7 @@ func (s *Server) Start() error {
 	// Create and open the store.
 	cfg.DataPath, err = filepath.Abs(cfg.DataPath)
 	if err != nil {
-		s.logger.Fatal("failed to determine absolute data path", zap.Error(err), zap.String("data-path", cfg.DataPath))
+		return fmt.Errorf("failed to determine absolute data path: %w", err)
 	}
 
 	authType := auth.Noop
@@ -150,7 +154,7 @@ func (s *Server) Start() error {
 		credentialsStore = auth.NewCredentialsStore()
 		err = credentialsStore.Add(cfg.RootUsername, cfg.RootPassword)
 		if err != nil {
-			s.logger.Fatal("failed to init credentialsStore", zap.Error(err))
+			return fmt.Errorf("failed to init credentialsStore: %w", err)
 		}
 	}
 
@@ -168,23 +172,23 @@ func (s *Server) Start() error {
 	s.str.SnapshotThreshold = cfg.RaftSnapThreshold
 	s.str.SnapshotInterval, err = time.ParseDuration(cfg.RaftSnapInterval)
 	if err != nil {
-		s.logger.Fatal("failed to parse Raft Snapsnot interval", zap.String("raft-snap-interval", cfg.RaftSnapInterval), zap.Error(err))
+		return fmt.Errorf("failed to parse Raft Snapsnot interval: %w", err)
 	}
 	s.str.LeaderLeaseTimeout, err = time.ParseDuration(cfg.RaftLeaderLeaseTimeout)
 	if err != nil {
-		s.logger.Fatal("failed to parse Raft Leader lease timeout", zap.String("raft-leader-lease-timeout", cfg.RaftLeaderLeaseTimeout), zap.Error(err))
+		return fmt.Errorf("failed to parse Raft Leader lease timeout: %w", err)
 	}
 	s.str.HeartbeatTimeout, err = time.ParseDuration(cfg.RaftHeartbeatTimeout)
 	if err != nil {
-		s.logger.Fatal("failed to parse Raft heartbeat timeout", zap.String("raft-hear-beat-timeout", cfg.RaftHeartbeatTimeout), zap.Error(err))
+		return fmt.Errorf("failed to parse Raft heartbeat timeout: %w", err)
 	}
 	s.str.ElectionTimeout, err = time.ParseDuration(cfg.RaftElectionTimeout)
 	if err != nil {
-		s.logger.Fatal("failed to parse Raft election timeout", zap.String("raft-election-timeout", cfg.RaftElectionTimeout), zap.Error(err))
+		return fmt.Errorf("failed to parse Raft election timeout: %w", err)
 	}
 	s.str.ApplyTimeout, err = time.ParseDuration(cfg.RaftApplyTimeout)
 	if err != nil {
-		s.logger.Fatal("failed to parse Raft apply timeout", zap.String("raft-election-timeout", cfg.RaftApplyTimeout), zap.Error(err))
+		return fmt.Errorf("failed to parse Raft apply timeout: %w", err)
 	}
 
 	// Any prexisting node state?
@@ -220,7 +224,7 @@ func (s *Server) Start() error {
 
 	// Now, open store.
 	if err := s.str.Open(enableBootstrap); err != nil {
-		s.logger.Fatal("failed to open store", zap.Error(err))
+		return fmt.Errorf("failed to open store: %w", err)
 	}
 
 	// Prepare metadata for join command.
@@ -244,56 +248,51 @@ func (s *Server) Start() error {
 
 		joinDur, err := time.ParseDuration(cfg.JoinInterval)
 		if err != nil {
-			s.logger.Fatal("failed to parse Join interval", zap.String("join-interval", cfg.JoinInterval), zap.Error(err))
+			return fmt.Errorf("failed to parse Join interval: %w", err)
 		}
 
 		tlsConfig := tls.Config{InsecureSkipVerify: cfg.NoVerify}
 		if cfg.X509CACert != "" {
 			asn1Data, err := ioutil.ReadFile(cfg.X509CACert)
 			if err != nil {
-				s.logger.Fatal("ioutil.ReadFile failed", zap.Error(err))
+				return fmt.Errorf("ioutil.ReadFile failed: %w", err)
 			}
 			tlsConfig.RootCAs = x509.NewCertPool()
 			ok := tlsConfig.RootCAs.AppendCertsFromPEM([]byte(asn1Data))
 			if !ok {
-				s.logger.Fatal("failed to parse root CA certificate(s)", zap.String("x509-ca-cert", cfg.X509CACert))
+				return errors.New("failed to parse root CA certificate(s)")
 			}
 		}
 
 		if j, err := cluster.Join(s.logger, cfg.JoinSrcIP, joins, s.str.ID(), advAddr, !cfg.RaftNonVoter, meta,
 			cfg.JoinAttempts, joinDur, &tlsConfig, auth.AuthConfig{AuthType: authType, Username: cfg.RootUsername, Password: cfg.RootPassword}); err != nil {
-			s.logger.Fatal("failed to join cluster", zap.Any("join-address", joins), zap.Error(err))
+			return fmt.Errorf("failed to join cluster: %w", err)
 		} else {
-			s.logger.Fatal("successfully joined cluster", zap.Any("join-address", j))
+			s.logger.Info("successfully joined cluster", zap.Any("join-address", j))
 		}
 
 	}
 
 	// Wait until the store is in full consensus.
 	if err := s.waitForConsensus(s.str, cfg); err != nil {
-		s.logger.Fatal("waitForConsensus error", zap.Error(err))
+		return fmt.Errorf("waitForConsensus error: %w", err)
 	}
 	// Init Auth Enforce
 	if isNew && cfg.EnableAuth {
 		if err := s.str.InitAuth(context.TODO(), cfg.RootUsername); err != nil {
-			s.logger.Fatal("failed to init auth", zap.Error(err))
+			return fmt.Errorf("failed to init auth: %w", err)
 		}
 	}
 	// This may be a standalone s. In that case set its own metadata.
 	if err := s.str.SetMetadata(meta); err != nil && err != store.ErrNotLeader {
 		// Non-leader errors are OK, since metadata will then be set through
 		// consensus as a result of a join. All other errors indicate a problem.
-		s.logger.Fatal("failed to set store metadata", zap.Error(err))
+		return fmt.Errorf("failed to set store metadata: %w", err)
 	}
 
 	c := core.New(s.str)
-	//Start the HTTP API server.
-	if err = s.startHTTPService(c, httpLn); err != nil {
-		s.logger.Fatal("failed to start HTTP server", zap.Error(err))
-	}
-	if err = s.startGrpcService(c, grpcLn); err != nil {
-		s.logger.Fatal("failed to start grpc HTTP server", zap.Error(err))
-	}
+	s.startHTTPService(c, httpLn)
+	s.startGrpcService(c, grpcLn)
 
 	s.logger.Info("node is ready", zap.Error(err))
 	return nil
@@ -368,7 +367,7 @@ func (s *Server) waitForConsensus(str *store.Store, cfg *CmdConfig) error {
 	return nil
 }
 
-func (s *Server) startHTTPService(c core.Core, ln net.Listener) error {
+func (s *Server) startHTTPService(c core.Core, ln net.Listener) {
 	httpd := core.NewHttpService(c)
 	handler := cors.AllowAll().Handler(httpd)
 	go func() {
@@ -377,11 +376,9 @@ func (s *Server) startHTTPService(c core.Core, ln net.Listener) error {
 			s.logger.Fatal("HTTP service Serve() returned", zap.Error(err))
 		}
 	}()
-
-	return nil
 }
 
-func (s *Server) startGrpcService(c core.Core, ln net.Listener) (err error) {
+func (s *Server) startGrpcService(c core.Core, ln net.Listener) {
 	grpcd := core.NewGrpcService(c)
 	go func() {
 		err := grpcd.Serve(ln)
@@ -390,7 +387,6 @@ func (s *Server) startGrpcService(c core.Core, ln net.Listener) (err error) {
 		}
 	}()
 	s.grpcd = grpcd
-	return err
 }
 
 func idOrRaftAddr(cfg *CmdConfig) string {
@@ -410,11 +406,11 @@ var prof struct {
 }
 
 // startProfile initializes the CPU and memory profile, if specified.
-func (s *Server) startProfile(cpuprofile, memprofile string) {
+func (s *Server) startProfile(cpuprofile, memprofile string) error {
 	if cpuprofile != "" {
 		f, err := os.Create(cpuprofile)
 		if err != nil {
-			s.logger.Fatal("failed to create CPU profile file", zap.Error(err), zap.String("cpu-profile", cpuprofile))
+			return fmt.Errorf("failed to create CPU profile file: %w", err)
 		}
 		s.logger.Info("writing CPU profile to path", zap.String("path", cpuprofile))
 		prof.cpu = f
@@ -424,44 +420,43 @@ func (s *Server) startProfile(cpuprofile, memprofile string) {
 	if memprofile != "" {
 		f, err := os.Create(memprofile)
 		if err != nil {
-			s.logger.Fatal("failed to create memory profile", zap.Error(err), zap.String("memory-profile", memprofile))
+			return fmt.Errorf("failed to create memory profile: %w", err)
 		}
 		s.logger.Info("writing memory profile to path", zap.String("path", memprofile))
 		prof.mem = f
 		runtime.MemProfileRate = 4096
 	}
+
+	return nil
 }
 
 func (s *Server) newListener(address string, advertiseAddress string, encrypt bool, keyFile string, certFile string, caFile string, clientAuthType tls.ClientAuthType, isServer bool) (net.Listener, error) {
 	listenerAddresses := strings.Split(address, ",")
 	if len(listenerAddresses) == 0 {
-		s.logger.Fatal("fatal: bind-address cannot empty")
+		return nil, errors.New("bind-address cannot empty")
 	}
 
 	// Create peer communication network layer.
 	var lns []net.Listener
+	var ln net.Listener
+	var err error
 	for _, address := range listenerAddresses {
 		if encrypt {
 			s.logger.Info("enabling encryption", zap.String("cert", certFile), zap.String("key", keyFile))
 			cfg, err := store.CreateTLSConfig(certFile, keyFile, caFile, isServer)
 			if err != nil {
-				s.logger.Fatal("failed to create tls config", zap.Error(err))
+				return nil, fmt.Errorf("failed to create tls config: %w", err)
 			}
 			cfg.ClientAuth = clientAuthType
-			ln, err := tls.Listen("tcp", address, cfg)
-			if err != nil {
-				s.logger.Fatal("failed to open internode network layer", zap.Error(err))
-			}
-			lns = append(lns, ln)
+			ln, err = tls.Listen("tcp", address, cfg)
 		} else {
-			ln, err := net.Listen("tcp", address)
-			if err != nil {
-				s.logger.Fatal("failed to open internode network layer", zap.Error(err))
-			}
-			lns = append(lns, ln)
+			ln, err = net.Listen("tcp", address)
 		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to open internode network layer: %w", err)
+		}
+		lns = append(lns, ln)
 	}
 
-	ln, err := cluster.NewListener(lns, advertiseAddress)
-	return ln, err
+	return cluster.NewListener(lns, advertiseAddress)
 }
