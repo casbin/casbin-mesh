@@ -52,7 +52,7 @@ func (suite *AdapterTestSuite) SetupTest() {
 	}
 	suite.db = db
 
-	bts, err := ioutil.ReadFile("../../test/test_data/rbac_policy.csv")
+	bts, err := ioutil.ReadFile("../../test/testdata/rbac_policy.csv")
 	if err != nil {
 		t.Error(err)
 	}
@@ -62,7 +62,7 @@ func (suite *AdapterTestSuite) SetupTest() {
 		t.Error(err)
 	}
 
-	enforcer, err := casbin.NewEnforcer("../../test/test_data/rbac_model.conf", a)
+	enforcer, err := casbin.NewEnforcer("../../test/testdata/rbac_model.conf", a)
 	if err != nil {
 		t.Errorf("error creating enforcer: %s\n", err.Error())
 	}
