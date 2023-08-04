@@ -114,14 +114,12 @@ const (
 
 // Store is casbin memory data, where all changes are made via Raft consensus.
 type Store struct {
-	authCredStore *auth.CredentialsStore
-	authType      auth.AuthType
-	raftDir       string
-	rootUsername  string
-	raft          *raft.Raft // The consensus mechanism.
-	ln            Listener
-	raftTn        *raft.NetworkTransport
-	raftID        string // Node ID.
+	raftDir      string
+	rootUsername string
+	raft         *raft.Raft // The consensus mechanism.
+	ln           Listener
+	raftTn       *raft.NetworkTransport
+	raftID       string // Node ID.
 
 	raftLog    raft.LogStore    // Persistent log store.
 	raftStable raft.StableStore // Persistent k-v store.
@@ -147,28 +145,20 @@ type Store struct {
 	enforcersState *adapter.BadgerStore
 	logger         *zap.Logger
 
-	ShutdownOnRemove   bool
-	SnapshotThreshold  uint64
-	SnapshotInterval   time.Duration
-	LeaderLeaseTimeout time.Duration
-	HeartbeatTimeout   time.Duration
-	ElectionTimeout    time.Duration
-	ApplyTimeout       time.Duration
-	RaftLogLevel       string
-
+	cfg             *StoreConfig
 	numTrailingLogs uint64
 }
 
 func (s *Store) AuthType() auth.AuthType {
-	return s.authType
+	return s.cfg.AuthType
 }
 
 // Check validates username and password
 func (s *Store) Check(username, password string) bool {
-	if s.authCredStore == nil {
+	if s.cfg.CredentialsStore == nil {
 		return false
 	}
-	return s.authCredStore.Check(username, password)
+	return s.cfg.CredentialsStore.Check(username, password)
 }
 
 // IsNewNode returns whether a node using raftDir would be a brand new node.
@@ -187,24 +177,20 @@ func New(ln Listener, c *StoreConfig) *Store {
 	}
 
 	store := &Store{
-		ln:            ln,
-		raftDir:       c.Dir,
-		raftID:        c.ID,
-		meta:          make(map[string]map[string]string),
-		logger:        logger,
-		ApplyTimeout:  applyTimeout,
-		authType:      c.AuthType,
-		authCredStore: c.CredentialsStore,
+		ln:      ln,
+		raftDir: c.Dir,
+		raftID:  c.ID,
+		meta:    make(map[string]map[string]string),
+		logger:  logger,
+		cfg:     c,
 	}
-	logger.Info("store is ready")
 
 	return store
-
 }
 
 // InitRoot init a root account
 func (s *Store) InitRoot(username, password string) error {
-	err := s.authCredStore.Add(username, password)
+	err := s.cfg.CredentialsStore.Add(username, password)
 	if err != nil {
 		return err
 	}
@@ -231,7 +217,7 @@ func (s *Store) Open(enableBootstrap bool) error {
 	s.raftTn = raft.NewNetworkTransport(NewTransport(s.ln), connectionPoolCount, connectionTimeout, nil)
 
 	// Don't allow control over trailing logs directly, just implement a policy.
-	s.numTrailingLogs = uint64(float64(s.SnapshotThreshold) * trailingScale)
+	s.numTrailingLogs = uint64(float64(s.cfg.SnapshotThreshold) * trailingScale)
 
 	config := s.raftConfig()
 	config.LocalID = raft.ServerID(s.raftID)
@@ -300,23 +286,23 @@ func (s *Store) Open(enableBootstrap bool) error {
 // raftConfig returns a new Raft config for the store.
 func (s *Store) raftConfig() *raft.Config {
 	config := raft.DefaultConfig()
-	config.ShutdownOnRemove = s.ShutdownOnRemove
-	config.LogLevel = s.RaftLogLevel
-	if s.SnapshotThreshold != 0 {
-		config.SnapshotThreshold = s.SnapshotThreshold
+	config.ShutdownOnRemove = s.cfg.ShutdownOnRemove
+	config.LogLevel = s.cfg.RaftLogLevel
+	if s.cfg.SnapshotThreshold != 0 {
+		config.SnapshotThreshold = s.cfg.SnapshotThreshold
 		config.TrailingLogs = s.numTrailingLogs
 	}
-	if s.SnapshotInterval != 0 {
-		config.SnapshotInterval = s.SnapshotInterval
+	if s.cfg.SnapshotInterval != 0 {
+		config.SnapshotInterval = s.cfg.SnapshotInterval
 	}
-	if s.LeaderLeaseTimeout != 0 {
-		config.LeaderLeaseTimeout = s.LeaderLeaseTimeout
+	if s.cfg.LeaderLeaseTimeout != 0 {
+		config.LeaderLeaseTimeout = s.cfg.LeaderLeaseTimeout
 	}
-	if s.HeartbeatTimeout != 0 {
-		config.HeartbeatTimeout = s.HeartbeatTimeout
+	if s.cfg.HeartbeatTimeout != 0 {
+		config.HeartbeatTimeout = s.cfg.HeartbeatTimeout
 	}
-	if s.ElectionTimeout != 0 {
-		config.ElectionTimeout = s.ElectionTimeout
+	if s.cfg.ElectionTimeout != 0 {
+		config.ElectionTimeout = s.cfg.ElectionTimeout
 	}
 	return config
 }
@@ -526,11 +512,11 @@ func (s *Store) Stats() (map[string]interface{}, error) {
 			"node_id": leaderID,
 			"addr":    s.LeaderAddr(),
 		},
-		"apply_timeout":      s.ApplyTimeout.String(),
-		"heartbeat_timeout":  s.HeartbeatTimeout.String(),
-		"election_timeout":   s.ElectionTimeout.String(),
-		"snapshot_threshold": s.SnapshotThreshold,
-		"snapshot_interval":  s.SnapshotInterval,
+		"apply_timeout":      s.cfg.ApplyTimeout.String(),
+		"heartbeat_timeout":  s.cfg.HeartbeatTimeout.String(),
+		"election_timeout":   s.cfg.ElectionTimeout.String(),
+		"snapshot_threshold": s.cfg.SnapshotThreshold,
+		"snapshot_interval":  s.cfg.SnapshotInterval,
 		"trailing_logs":      s.numTrailingLogs,
 		"metadata":           s.meta,
 		"nodes":              nodes,
@@ -636,7 +622,7 @@ func (s *Store) remove(id string) error {
 		return err
 	}
 
-	f = s.raft.Apply(bc, s.ApplyTimeout)
+	f = s.raft.Apply(bc, s.cfg.ApplyTimeout)
 	if e := f.(raft.Future); e.Error() != nil {
 		if e.Error() == raft.ErrNotLeader {
 			return ErrNotLeader

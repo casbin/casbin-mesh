@@ -46,12 +46,6 @@ func main() {
 				return
 			}
 
-			if len(args) < 1 {
-				fmt.Printf("fatal: no data directory set\n")
-				os.Exit(1)
-				return
-			}
-
 			// Ensure no args come after the data directory.
 			if len(args) > 1 {
 				fmt.Printf("fatal: arguments after data directory are not accepted\n")
@@ -59,7 +53,11 @@ func main() {
 				return
 			}
 
-			cfg.DataPath = args[0]
+			dataPath := ""
+			if len(args) == 1 {
+				dataPath = args[0]
+			}
+			cfg.DataPath = dataPath
 
 			s, err := server.NewServer(&cfg)
 			if err != nil {

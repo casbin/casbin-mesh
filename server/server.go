@@ -45,12 +45,13 @@ import (
 )
 
 type Server struct {
-	cfg     *CmdConfig
-	grpcd   *grpc.Server
-	str     *store.Store
-	pprofLn net.Listener
-	logger  *zap.Logger
-	closed  atomic.Bool
+	cfg       *CmdConfig
+	grpcd     *grpc.Server
+	str       *store.Store
+	strConfig *store.StoreConfig
+	pprofLn   net.Listener
+	logger    *zap.Logger
+	closed    atomic.Bool
 }
 
 func NewServer(cfg *CmdConfig) (*Server, error) {
@@ -63,6 +64,45 @@ func NewServer(cfg *CmdConfig) (*Server, error) {
 		logger: logger,
 		cfg:    cfg,
 	}
+
+	if cfg.DataPath == "" {
+		return nil, errors.New("no data directory set")
+	}
+
+	cfg.DataPath, err = filepath.Abs(cfg.DataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine absolute data path: %w", err)
+	}
+
+	server.strConfig = &store.StoreConfig{
+		Dir:    cfg.DataPath,
+		ID:     idOrRaftAddr(cfg),
+		Logger: server.logger,
+	}
+	server.strConfig.SnapshotInterval, err = time.ParseDuration(cfg.RaftSnapInterval)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Raft Snapsnot interval: %w", err)
+	}
+	server.strConfig.LeaderLeaseTimeout, err = time.ParseDuration(cfg.RaftLeaderLeaseTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Raft Leader lease timeout: %w", err)
+	}
+	server.strConfig.HeartbeatTimeout, err = time.ParseDuration(cfg.RaftHeartbeatTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Raft heartbeat timeout: %w", err)
+	}
+	server.strConfig.ElectionTimeout, err = time.ParseDuration(cfg.RaftElectionTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Raft election timeout: %w", err)
+	}
+	server.strConfig.ApplyTimeout, err = time.ParseDuration(cfg.RaftApplyTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Raft apply timeout: %w", err)
+	}
+
+	server.strConfig.RaftLogLevel = cfg.RaftLogLevel
+	server.strConfig.ShutdownOnRemove = cfg.RaftShutdownOnRemove
+	server.strConfig.SnapshotThreshold = cfg.RaftSnapThreshold
 
 	return server, nil
 }
@@ -140,12 +180,6 @@ func (s *Server) Start() error {
 	}
 	raftTransport = store.NewTransportFromListener(s.logger, raftLn, raftTlsConfig)
 
-	// Create and open the store.
-	cfg.DataPath, err = filepath.Abs(cfg.DataPath)
-	if err != nil {
-		return fmt.Errorf("failed to determine absolute data path: %w", err)
-	}
-
 	authType := auth.Noop
 	var credentialsStore *auth.CredentialsStore
 	if cfg.EnableAuth {
@@ -158,38 +192,9 @@ func (s *Server) Start() error {
 		}
 	}
 
-	s.str = store.New(raftTransport, &store.StoreConfig{
-		Dir:              cfg.DataPath,
-		ID:               idOrRaftAddr(cfg),
-		AuthType:         authType,
-		CredentialsStore: credentialsStore,
-		Logger:           s.logger,
-	})
-
-	// Set optional parameters on store.
-	s.str.RaftLogLevel = cfg.RaftLogLevel
-	s.str.ShutdownOnRemove = cfg.RaftShutdownOnRemove
-	s.str.SnapshotThreshold = cfg.RaftSnapThreshold
-	s.str.SnapshotInterval, err = time.ParseDuration(cfg.RaftSnapInterval)
-	if err != nil {
-		return fmt.Errorf("failed to parse Raft Snapsnot interval: %w", err)
-	}
-	s.str.LeaderLeaseTimeout, err = time.ParseDuration(cfg.RaftLeaderLeaseTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to parse Raft Leader lease timeout: %w", err)
-	}
-	s.str.HeartbeatTimeout, err = time.ParseDuration(cfg.RaftHeartbeatTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to parse Raft heartbeat timeout: %w", err)
-	}
-	s.str.ElectionTimeout, err = time.ParseDuration(cfg.RaftElectionTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to parse Raft election timeout: %w", err)
-	}
-	s.str.ApplyTimeout, err = time.ParseDuration(cfg.RaftApplyTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to parse Raft apply timeout: %w", err)
-	}
+	s.strConfig.AuthType = authType
+	s.strConfig.CredentialsStore = credentialsStore
+	s.str = store.New(raftTransport, s.strConfig)
 
 	// Any prexisting node state?
 	var enableBootstrap bool

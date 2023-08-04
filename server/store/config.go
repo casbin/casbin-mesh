@@ -15,6 +15,8 @@
 package store
 
 import (
+	"time"
+
 	"github.com/casbin/casbin-mesh/server/auth"
 	"go.uber.org/zap"
 )
@@ -28,4 +30,13 @@ type StoreConfig struct {
 	AuthType auth.AuthType
 	*auth.CredentialsStore
 	AdvAddr string
+
+	RaftLogLevel       string
+	ShutdownOnRemove   bool
+	SnapshotThreshold  uint64
+	SnapshotInterval   time.Duration
+	LeaderLeaseTimeout time.Duration
+	HeartbeatTimeout   time.Duration
+	ElectionTimeout    time.Duration
+	ApplyTimeout       time.Duration
 }
